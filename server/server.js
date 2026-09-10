@@ -4,6 +4,10 @@ const mongoose = require("mongoose");
 const crypto = require("crypto");
 require("dotenv").config();
 const Staff = require("./models/Staff");
+const Event = require("./models/Event");
+const Faculty = require("./models/Faculty");
+const Room = require("./models/Room");
+const History = require("./models/History");
 
 const app = express();
 
@@ -92,6 +96,160 @@ app.post("/api/auth/login", async (req, res) => {
     } catch (error) {
         console.error("Staff login error:", error);
         return res.status(500).json({ message: "Unable to sign in right now." });
+    }
+});
+
+// Calendar Event Routes
+app.get("/api/events", async (req, res) => {
+    try {
+        const events = await Event.find().sort({ date: 1, startTime: 1 });
+        return res.json(events);
+    } catch (error) {
+        console.error("Get events error:", error);
+        return res.status(500).json({ message: "Failed to fetch events." });
+    }
+});
+
+app.post("/api/events", async (req, res) => {
+    try {
+        const newEvent = await Event.create(req.body);
+        return res.status(201).json(newEvent);
+    } catch (error) {
+        console.error("Create event error:", error);
+        return res.status(400).json({ message: "Failed to create event." });
+    }
+});
+
+app.put("/api/events/:id", async (req, res) => {
+    try {
+        const updatedEvent = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedEvent) return res.status(404).json({ message: "Event not found." });
+        return res.json(updatedEvent);
+    } catch (error) {
+        console.error("Update event error:", error);
+        return res.status(400).json({ message: "Failed to update event." });
+    }
+});
+
+app.delete("/api/events/:id", async (req, res) => {
+    try {
+        const deletedEvent = await Event.findByIdAndDelete(req.params.id);
+        if (!deletedEvent) return res.status(404).json({ message: "Event not found." });
+        return res.json({ message: "Event deleted successfully." });
+    } catch (error) {
+        console.error("Delete event error:", error);
+        return res.status(500).json({ message: "Failed to delete event." });
+    }
+});
+
+// Faculty Routes
+app.get("/api/faculty", async (req, res) => {
+    try {
+        const facultyList = await Faculty.find().sort({ createdAt: -1 });
+        return res.json(facultyList);
+    } catch (error) {
+        console.error("Get faculty error:", error);
+        return res.status(500).json({ message: "Failed to fetch faculty members." });
+    }
+});
+
+app.post("/api/faculty", async (req, res) => {
+    try {
+        const newFaculty = await Faculty.create(req.body);
+        return res.status(201).json(newFaculty);
+    } catch (error) {
+        console.error("Create faculty error:", error);
+        return res.status(400).json({ message: "Failed to create faculty member." });
+    }
+});
+
+app.put("/api/faculty/:id", async (req, res) => {
+    try {
+        const updatedFaculty = await Faculty.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedFaculty) return res.status(404).json({ message: "Faculty member not found." });
+        return res.json(updatedFaculty);
+    } catch (error) {
+        console.error("Update faculty error:", error);
+        return res.status(400).json({ message: "Failed to update faculty member." });
+    }
+});
+
+app.delete("/api/faculty/:id", async (req, res) => {
+    try {
+        const deletedFaculty = await Faculty.findByIdAndDelete(req.params.id);
+        if (!deletedFaculty) return res.status(404).json({ message: "Faculty member not found." });
+        return res.json({ message: "Faculty member deleted successfully." });
+    } catch (error) {
+        console.error("Delete faculty error:", error);
+        return res.status(500).json({ message: "Failed to delete faculty member." });
+    }
+});
+
+// Room Routes
+app.get("/api/rooms", async (req, res) => {
+    try {
+        const rooms = await Room.find().sort({ name: 1 });
+        return res.json(rooms);
+    } catch (error) {
+        console.error("Get rooms error:", error);
+        return res.status(500).json({ message: "Failed to fetch rooms." });
+    }
+});
+
+app.post("/api/rooms", async (req, res) => {
+    try {
+        if (Array.isArray(req.body)) {
+            const createdRooms = await Room.insertMany(req.body);
+            return res.status(201).json(createdRooms);
+        }
+        const newRoom = await Room.create(req.body);
+        return res.status(201).json(newRoom);
+    } catch (error) {
+        console.error("Create rooms error:", error);
+        return res.status(400).json({ message: "Failed to create room(s)." });
+    }
+});
+
+app.put("/api/rooms/:id", async (req, res) => {
+    try {
+        const updatedRoom = await Room.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedRoom) return res.status(404).json({ message: "Room not found." });
+        return res.json(updatedRoom);
+    } catch (error) {
+        console.error("Update room error:", error);
+        return res.status(400).json({ message: "Failed to update room." });
+    }
+});
+
+app.delete("/api/rooms/:id", async (req, res) => {
+    try {
+        const deletedRoom = await Room.findByIdAndDelete(req.params.id);
+        if (!deletedRoom) return res.status(404).json({ message: "Room not found." });
+        return res.json({ message: "Room deleted successfully." });
+    } catch (error) {
+        console.error("Delete room error:", error);
+        return res.status(500).json({ message: "Failed to delete room." });
+    }
+});
+
+// History Routes
+app.get("/api/history", async (req, res) => {
+    try {
+        const historyLogs = await History.find().sort({ createdAt: -1 });
+        return res.json(historyLogs);
+    } catch (error) {
+        console.error("Get history error:", error);
+        return res.status(500).json({ message: "Failed to fetch room history logs." });
+    }
+});
+
+app.post("/api/history", async (req, res) => {
+    try {
+        const newLog = await History.create(req.body);
+        return res.status(201).json(newLog);
+    } catch (error) {
+        console.error("Create history error:", error);
+        return res.status(400).json({ message: "Failed to create history record." });
     }
 });
 

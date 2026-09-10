@@ -18,31 +18,32 @@ import {
   DoorClosed,
   CalendarClock,
   Wrench,
-  X
+  X,
+  History
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import AddFaculty from './pages/AddFaculty'
 import Calendar from './pages/Calendar'
 import FacultyMembers from './pages/FacultyMembers'
-import RoomLayout from './pages/RoomLayout'
 import Rooms from './pages/Rooms'
 import RoomsTaken from './pages/RoomsTaken'
 import RoomQueue from './pages/RoomQueue'
+import RoomHistory from './pages/RoomHistory'
 import SettingsPage from './pages/Settings'
 
 const navigation = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Rooms', icon: DoorOpen },
   { label: 'Rooms taken', icon: DoorClosed },
-  { label: 'Room queue', icon: CalendarClock },
+  { label: 'Building structure', icon: Building2 },
   { label: 'Faculty members', icon: Users },
   { label: 'Calendar', icon: CalendarDays },
-  { label: 'Room layout', icon: LayoutGrid },
+  { label: 'History', icon: History },
   { label: 'Add faculty', icon: UserPlus },
   { label: 'Settings', icon: Settings },
 ]
 
-const pageComponents = { Rooms, 'Rooms taken': RoomsTaken, 'Room queue': RoomQueue, Requests: Rooms, 'Faculty members': FacultyMembers, Calendar, 'Room layout': RoomLayout, 'Add faculty': AddFaculty, Settings: SettingsPage }
+const pageComponents = { Rooms, 'Rooms taken': RoomsTaken, 'Building structure': RoomQueue, 'Room queue': RoomQueue, Requests: Rooms, 'Faculty members': FacultyMembers, Calendar, History: RoomHistory, 'Room history': RoomHistory, 'Add faculty': AddFaculty, Settings: SettingsPage }
 
 const requests = [
   { room: 'B-204', resident: 'Jordan Lee', detail: 'Desk lamp replacement', status: 'Open', tone: 'amber' },
@@ -73,11 +74,90 @@ function StatCard({ icon: Icon, label, value, detail, tone }) {
   )
 }
 
+function LogoutConfirmModal({ onConfirm, onCancel }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="logout-dialog-title"
+    >
+      <div className="w-full max-w-sm mx-4 rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-slate-100 bg-rose-50 px-5 py-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100">
+            <LogOut className="h-5 w-5 text-rose-600" aria-hidden="true" />
+          </span>
+          <div>
+            <p id="logout-dialog-title" className="text-sm font-extrabold text-slate-900">Sign out</p>
+            <p className="text-xs text-slate-500">College Room Management System</p>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-5">
+          <p className="text-sm text-slate-700 leading-relaxed">
+            Are you sure you want to <span className="font-bold text-rose-600">log out</span>? You will be redirected to the sign-in page.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-700 transition focus:outline-none focus:ring-4 focus:ring-rose-600/20"
+          >
+            Yes, log out
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard({ staff, onLogout }) {
   const [activeItem, setActiveItem] = useState('Dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
   const organizationName = staff?.organizationName || 'Campus Residence'
   const ActivePage = pageComponents[activeItem]
+
+  // ── Shared Faculty State (lifted so AddFaculty & FacultyMembers stay in sync) ──
+  const [facultyList, setFacultyList] = useState([])
+  const [facultyLoading, setFacultyLoading] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+    async function fetchFaculty() {
+      try {
+        const res = await fetch('http://localhost:5000/api/faculty')
+        if (res.ok) {
+          const data = await res.json()
+          if (isMounted) setFacultyList(Array.isArray(data) ? data : [])
+        }
+      } catch (err) {
+        // server offline – list stays empty
+      } finally {
+        if (isMounted) setFacultyLoading(false)
+      }
+    }
+    fetchFaculty()
+    return () => { isMounted = false }
+  }, [])
+
+  // Called by AddFaculty after a successful save – prepend new member and switch tab
+  function handleFacultyAdded(newFaculty) {
+    setFacultyList(prev => [newFaculty, ...prev])
+    setActiveItem('Faculty members')
+  }
 
   return (
     <div className="flex h-full min-h-0 bg-[#f5f7fb] text-slate-900">
@@ -97,7 +177,7 @@ export default function Dashboard({ staff, onLogout }) {
           ))}
         </nav>
         <div className="border-t border-slate-100 p-4">
-          <button type="button" onClick={onLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50"><LogOut aria-hidden="true" className="h-[18px] w-[18px]" />Log out</button>
+          <button type="button" onClick={() => setShowLogoutModal(true)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50"><LogOut aria-hidden="true" className="h-[18px] w-[18px]" />Log out</button>
         </div>
       </aside>
 
@@ -107,8 +187,20 @@ export default function Dashboard({ staff, onLogout }) {
           <div className="hidden items-center gap-3 md:flex"><div className="relative"><Search aria-hidden="true" className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><input aria-label="Search dashboard" placeholder="Search rooms or residents" className="h-9 w-56 rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none focus:border-[#0d8c7a]" /></div><button type="button" aria-label="View notifications" className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Bell aria-hidden="true" className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" /></button><div className="flex items-center gap-2 border-l border-slate-200 pl-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d9f1ed] text-xs font-bold text-[#087364]">{organizationName.slice(0, 2).toUpperCase()}</span><div className="hidden xl:block"><p className="max-w-36 truncate text-xs font-bold text-slate-800">{organizationName}</p><p className="text-[10px] text-slate-400">Staff administrator</p></div><ChevronDown aria-hidden="true" className="h-4 w-4 text-slate-400" /></div></div>
         </header>
 
-        <main className="dashboard-content min-h-0 flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-          {activeItem !== 'Dashboard' && ActivePage ? <ActivePage /> : null}
+        <main className={`dashboard-content flex-1 min-h-0 ${activeItem === 'Dashboard' ? 'overflow-auto p-4 sm:p-6 lg:p-8' : 'flex flex-col overflow-hidden p-3 sm:p-4'}`}>
+          {activeItem !== 'Dashboard' && ActivePage ? (
+            activeItem === 'Faculty members' ? (
+              <FacultyMembers
+                facultyList={facultyList}
+                setFacultyList={setFacultyList}
+                isLoading={facultyLoading}
+              />
+            ) : activeItem === 'Add faculty' ? (
+              <AddFaculty onFacultyAdded={handleFacultyAdded} />
+            ) : (
+              <ActivePage />
+            )
+          ) : null}
           {activeItem === 'Dashboard' ? (
           <div className="mx-auto max-w-7xl space-y-6">
             <section className="relative overflow-hidden rounded-2xl bg-[#e8f3ff] px-6 py-7 sm:px-8"><div className="relative z-10 max-w-xl"><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#0d8c7a]">{organizationName}</p><h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Good morning, staff team.</h2><p className="mt-2 max-w-md text-sm leading-6 text-slate-600">Here is the latest view of rooms, residents, and maintenance activity across your campus.</p><button type="button" onClick={() => setActiveItem('Rooms')} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#0d8c7a] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#087364]"><DoorOpen aria-hidden="true" className="h-4 w-4" />View rooms</button></div><Building2 aria-hidden="true" className="absolute -right-4 -bottom-8 h-48 w-48 text-[#cfe5fb]" /></section>
@@ -122,6 +214,12 @@ export default function Dashboard({ staff, onLogout }) {
           ) : null}
         </main>
       </div>
+      {showLogoutModal && (
+        <LogoutConfirmModal
+          onConfirm={onLogout}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+      )}
     </div>
   )
 }

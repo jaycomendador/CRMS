@@ -8,6 +8,7 @@ import {
   Building,
   Edit2,
   Trash2,
+  Eye,
   X,
   Loader2
 } from 'lucide-react'
@@ -29,7 +30,7 @@ export default function FacultyMembers({ facultyList = [], setFacultyList, isLoa
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments')
   const [selectedStatus, setSelectedStatus] = useState('all')
 
-  const [activeModal, setActiveModal] = useState(null) // null | 'edit'
+  const [activeModal, setActiveModal] = useState(null) // null | 'view' | 'edit'
   const [selectedFaculty, setSelectedFaculty] = useState(null)
 
   const [formData, setFormData] = useState({
@@ -84,6 +85,11 @@ export default function FacultyMembers({ facultyList = [], setFacultyList, isLoa
     setActiveModal('edit')
   }
 
+  function openViewModal(fac) {
+    setSelectedFaculty(fac)
+    setActiveModal('view')
+  }
+
   async function handleSaveEdit(e) {
     e.preventDefault()
     if (!selectedFaculty) return
@@ -102,7 +108,7 @@ export default function FacultyMembers({ facultyList = [], setFacultyList, isLoa
       } else {
         showNotice('Failed to update. Please try again.')
       }
-    } catch (err) {
+    } catch {
       showNotice('Server offline — could not save changes.')
     } finally {
       setSaving(false)
@@ -119,7 +125,7 @@ export default function FacultyMembers({ facultyList = [], setFacultyList, isLoa
       } else {
         showNotice('Failed to delete. Please try again.')
       }
-    } catch (err) {
+    } catch {
       showNotice('Server offline — could not delete.')
     }
   }
@@ -137,7 +143,7 @@ export default function FacultyMembers({ facultyList = [], setFacultyList, isLoa
         setFacultyList(prev => prev.map(f => f._id === updated._id ? updated : f))
         showNotice(`${fac.name} set to ${nextStatus}.`)
       }
-    } catch (err) {
+    } catch {
       showNotice('Server offline — could not update status.')
     }
   }
@@ -294,6 +300,14 @@ export default function FacultyMembers({ facultyList = [], setFacultyList, isLoa
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
+                              onClick={() => openViewModal(fac)}
+                              className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-[#0d8c7a]"
+                              title="View faculty information"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleToggleStatus(fac)}
                               className="rounded-md px-2 py-1 text-[10px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200"
                             >
@@ -326,6 +340,38 @@ export default function FacultyMembers({ facultyList = [], setFacultyList, isLoa
           )}
         </div>
       </div>
+
+      {/* VIEW FACULTY MODAL */}
+      {activeModal === 'view' && selectedFaculty && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-white p-5 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-[#0d8c7a]" />
+                <h3 className="text-base font-bold text-slate-900">Faculty Information</h3>
+              </div>
+              <button type="button" onClick={() => setActiveModal(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-4 space-y-3 rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs">
+              <div><p className="font-bold text-slate-500">Name</p><p className="mt-1 font-bold text-slate-900">{selectedFaculty.name}</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><p className="font-bold text-slate-500">Department</p><p className="mt-1 font-semibold text-slate-800">{selectedFaculty.department || 'Not specified'}</p></div>
+                <div><p className="font-bold text-slate-500">Role</p><p className="mt-1 font-semibold text-slate-800">{selectedFaculty.role || 'Not specified'}</p></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><p className="font-bold text-slate-500">Email</p><p className="mt-1 font-semibold text-slate-800">{selectedFaculty.email || 'Not specified'}</p></div>
+                <div><p className="font-bold text-slate-500">Phone</p><p className="mt-1 font-semibold text-slate-800">{selectedFaculty.phone || 'Not specified'}</p></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><p className="font-bold text-slate-500">Assigned Building</p><p className="mt-1 font-semibold text-slate-800">{selectedFaculty.assignedBuilding || 'Not assigned'}</p></div>
+                <div><p className="font-bold text-slate-500">Assigned Room</p><p className="mt-1 font-semibold text-slate-800">{selectedFaculty.assignedRoom || 'Not assigned'}</p></div>
+              </div>
+              <div><p className="font-bold text-slate-500">Status</p><p className="mt-1 font-semibold text-slate-800">{selectedFaculty.status || 'Not specified'}</p></div>
+            </div>
+            <div className="mt-4 flex justify-end border-t border-slate-100 pt-3"><button type="button" onClick={() => setActiveModal(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Close</button></div>
+          </div>
+        </div>
+      )}
 
       {/* EDIT MODAL */}
       {activeModal === 'edit' && (

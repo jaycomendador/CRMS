@@ -31,104 +31,6 @@ function formatDateKey(dateObj) {
   return `${y}-${m}-${d}`
 }
 
-function getInitialEvents() {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = today.getMonth()
-
-  const format = (dayOffset, monthOffset = 0) => {
-    const d = new Date(year, month + monthOffset, today.getDate() + dayOffset)
-    return formatDateKey(d)
-  }
-
-  return [
-    {
-      _id: 'evt-1',
-      title: 'End-of-Term Room Inspections',
-      category: 'Inspection',
-      date: format(0),
-      startTime: '09:00',
-      endTime: '11:30',
-      room: 'Building A (Rooms 101-115)',
-      assignedTo: 'Officer Marcus Vance',
-      status: 'Scheduled',
-      notes: 'Check smoke detectors, window seals, and room safety equipment.'
-    },
-    {
-      _id: 'evt-2',
-      title: 'Air Conditioner Repair',
-      category: 'Maintenance',
-      date: format(0),
-      startTime: '13:00',
-      endTime: '14:30',
-      room: 'B-204',
-      assignedTo: 'Tech Alex Rivera',
-      status: 'In progress',
-      notes: 'Replace filter and inspect compressor unit.'
-    },
-    {
-      _id: 'evt-3',
-      title: 'New Student Resident Move-In',
-      category: 'Move-in',
-      date: format(1),
-      startTime: '08:30',
-      endTime: '16:00',
-      room: 'East Residence Hall',
-      assignedTo: 'Housing Office Team',
-      status: 'Scheduled',
-      notes: 'Key card distribution and welcome packet issuance.'
-    },
-    {
-      _id: 'evt-4',
-      title: 'Faculty Lounge Reservation',
-      category: 'Reservation',
-      date: format(2),
-      startTime: '10:00',
-      endTime: '12:00',
-      room: 'Central Hall Lounge',
-      assignedTo: 'Dr. Evelyn Reed',
-      status: 'Scheduled',
-      notes: 'Department heads quarterly meeting.'
-    },
-    {
-      _id: 'evt-5',
-      title: 'Campus Housing Fire Drill',
-      category: 'Event',
-      date: format(4),
-      startTime: '14:00',
-      endTime: '15:30',
-      room: 'All Quad Buildings',
-      assignedTo: 'Campus Safety & Staff',
-      status: 'Scheduled',
-      notes: 'Mandatory evacuation drill for all residents.'
-    },
-    {
-      _id: 'evt-6',
-      title: 'Desk Lamp & Lock Maintenance',
-      category: 'Maintenance',
-      date: format(-2),
-      startTime: '10:00',
-      endTime: '11:00',
-      room: 'C-307',
-      assignedTo: 'Tech Sam Taylor',
-      status: 'Completed',
-      notes: 'Replaced faulty keycard reader and desk fixture.'
-    },
-    {
-      _id: 'evt-7',
-      title: 'Move-Out Inspection & Key Return',
-      category: 'Inspection',
-      date: format(5),
-      startTime: '09:00',
-      endTime: '12:00',
-      room: 'West Hall - Floor 2',
-      assignedTo: 'Staff Sarah Jenkins',
-      status: 'Scheduled',
-      notes: 'Verify room cleanliness and collect key cards.'
-    }
-  ]
-}
-
 const CATEGORIES = {
   Inspection: { label: 'Inspection', color: 'bg-rose-50 text-rose-700 border-rose-200', icon: ClipboardList, badgeBg: 'bg-rose-500' },
   Maintenance: { label: 'Maintenance', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Wrench, badgeBg: 'bg-amber-500' },
@@ -147,7 +49,9 @@ export default function Calendar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedDate, setSelectedDate] = useState(new Date())
   
-  const [events, setEvents] = useState(getInitialEvents)
+  const [events, setEvents] = useState([])
+  const [rooms, setRooms] = useState([])
+  const [facultyList, setFacultyList] = useState([])
   const [activeModal, setActiveModal] = useState(null) // null | 'add' | 'edit' | 'details'
   const [selectedEvent, setSelectedEvent] = useState(null)
   
@@ -163,23 +67,34 @@ export default function Calendar() {
     notes: ''
   })
 
-  // Try fetching events from backend API if available
   useEffect(() => {
     let isMounted = true
-    async function fetchEvents() {
+    async function fetchCalendarData() {
       try {
-        const res = await fetch('http://localhost:5000/api/events')
-        if (res.ok) {
-          const data = await res.json()
-          if (isMounted && Array.isArray(data) && data.length > 0) {
-            setEvents(data)
-          }
+        const [eventsResponse, roomsResponse, facultyResponse] = await Promise.all([
+          fetch('http://localhost:5000/api/events'),
+          fetch('http://localhost:5000/api/rooms'),
+          fetch('http://localhost:5000/api/faculty')
+        ])
+        const [eventsData, roomsData, facultyData] = await Promise.all([
+          eventsResponse.ok ? eventsResponse.json() : [],
+          roomsResponse.ok ? roomsResponse.json() : [],
+          facultyResponse.ok ? facultyResponse.json() : []
+        ])
+        if (isMounted) {
+          setEvents(Array.isArray(eventsData) ? eventsData : [])
+          setRooms(Array.isArray(roomsData) ? roomsData : [])
+          setFacultyList(Array.isArray(facultyData) ? facultyData : [])
         }
-      } catch (err) {
-        // Backend offline fallback
+      } catch {
+        if (isMounted) {
+          setEvents([])
+          setRooms([])
+          setFacultyList([])
+        }
       }
     }
-    fetchEvents()
+    fetchCalendarData()
     return () => { isMounted = false }
   }, [])
 
@@ -242,6 +157,12 @@ export default function Calendar() {
     })
   }, [events, selectedCategory, selectedStatus, searchQuery])
 
+  const eventCategories = useMemo(() => {
+    const categories = new Set(events.map(event => event.category).filter(Boolean))
+    if (formData.category) categories.add(formData.category)
+    return [...categories]
+  }, [events, formData.category])
+
   // Open add modal pre-filled for a date
   function openAddModal(dateStr = formatDateKey(currentDate)) {
     setFormData({
@@ -285,11 +206,6 @@ export default function Calendar() {
     if (!formData.title.trim() || !formData.date) return
 
     if (activeModal === 'add') {
-      const newEvt = {
-        _id: 'evt-' + Date.now(),
-        ...formData
-      }
-
       try {
         const res = await fetch('http://localhost:5000/api/events', {
           method: 'POST',
@@ -302,9 +218,9 @@ export default function Calendar() {
           setActiveModal(null)
           return
         }
-      } catch (err) {}
-
-      setEvents(prev => [...prev, newEvt])
+      } catch {
+        return
+      }
     } else if (activeModal === 'edit' && selectedEvent) {
       const updated = { ...selectedEvent, ...formData }
 
@@ -316,7 +232,9 @@ export default function Calendar() {
             body: JSON.stringify(formData)
           })
         }
-      } catch (err) {}
+      } catch {
+        setActiveModal(null)
+      }
 
       setEvents(prev => prev.map(e => e._id === selectedEvent._id ? updated : e))
     }
@@ -331,7 +249,9 @@ export default function Calendar() {
       if (!eventId.startsWith('evt-')) {
         await fetch(`http://localhost:5000/api/events/${eventId}`, { method: 'DELETE' })
       }
-    } catch (err) {}
+    } catch {
+      setActiveModal(null)
+    }
 
     setEvents(prev => prev.filter(e => e._id !== eventId))
     setActiveModal(null)
@@ -349,7 +269,9 @@ export default function Calendar() {
           body: JSON.stringify({ status: nextStatus })
         })
       }
-    } catch (err) {}
+    } catch {
+      setActiveModal(null)
+    }
 
     setEvents(prev => prev.map(e => e._id === evt._id ? updated : e))
     if (selectedEvent?._id === evt._id) {
@@ -527,7 +449,8 @@ export default function Calendar() {
             >
               All
             </button>
-            {Object.entries(CATEGORIES).map(([key, cat]) => {
+            {eventCategories.map(key => {
+              const cat = CATEGORIES[key] || CATEGORIES.Event
               const IconComp = cat.icon
               const isSelected = selectedCategory === key
               return (
@@ -912,7 +835,7 @@ export default function Calendar() {
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
                     className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#0d8c7a]"
                   >
-                    {Object.keys(CATEGORIES).map(cat => (
+                    {eventCategories.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
@@ -953,23 +876,27 @@ export default function Calendar() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700">Room / Facility</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. B-204"
+                  <select
                     value={formData.room}
                     onChange={e => setFormData({ ...formData, room: e.target.value })}
                     className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#0d8c7a]"
-                  />
+                  >
+                    <option value="">Select a room</option>
+                    {formData.room && !rooms.some(room => room.name === formData.room) && <option value={formData.room}>{formData.room} (Existing)</option>}
+                    {rooms.map(room => <option key={room._id} value={room.name}>{room.name} - {room.building}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700">Assigned Staff</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Officer Marcus"
+                  <select
                     value={formData.assignedTo}
                     onChange={e => setFormData({ ...formData, assignedTo: e.target.value })}
                     className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#0d8c7a]"
-                  />
+                  >
+                    <option value="">Select faculty member</option>
+                    {formData.assignedTo && !facultyList.some(faculty => faculty.name === formData.assignedTo) && <option value={formData.assignedTo}>{formData.assignedTo} (Existing)</option>}
+                    {facultyList.map(faculty => <option key={faculty._id} value={faculty.name}>{faculty.name} - {faculty.role}</option>)}
+                  </select>
                 </div>
               </div>
 

@@ -19,7 +19,7 @@ const historySchema = new mongoose.Schema(
         },
         action: {
             type: String,
-            enum: ["Room Reserved", "Room Assigned", "Key Card Issued", "Inspection Completed", "Room Checked Out", "Maintenance Logged"],
+            enum: ["Room Reserved", "Room Assigned", "Key Card Issued", "Inspection Completed", "Room Checked Out", "Maintenance Logged", "Room Status Changed"],
             default: "Room Reserved"
         },
         status: {

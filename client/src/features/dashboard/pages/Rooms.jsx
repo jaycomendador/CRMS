@@ -3,19 +3,12 @@ import {
   DoorOpen,
   Plus,
   Search,
-  Filter,
   Building,
   User,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Wrench,
   Edit2,
   Trash2,
   X,
-  Sparkles,
-  Layers,
-  Hash
+  Sparkles
 } from 'lucide-react'
 
 const INITIAL_ROOMS = [
@@ -35,6 +28,7 @@ const ROOM_STATUSES = ['Available', 'Occupied', 'Reserved', 'Under maintenance']
 
 export default function Rooms() {
   const [rooms, setRooms] = useState(INITIAL_ROOMS)
+  const [facultyList, setFacultyList] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBuilding, setSelectedBuilding] = useState('All Buildings')
   const [selectedStatus, setSelectedStatus] = useState('all')
@@ -77,11 +71,28 @@ export default function Rooms() {
             setRooms(data)
           }
         }
-      } catch (err) {
-        // Backend offline fallback
+      } catch {
+        if (isMounted) setNotice('Unable to load rooms from the database.')
       }
     }
     fetchRooms()
+    return () => { isMounted = false }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+    async function fetchFaculty() {
+      try {
+        const res = await fetch('http://localhost:5000/api/faculty')
+        if (res.ok) {
+          const data = await res.json()
+          if (isMounted) setFacultyList(Array.isArray(data) ? data : [])
+        }
+      } catch {
+        if (isMounted) setFacultyList([])
+      }
+    }
+    fetchFaculty()
     return () => { isMounted = false }
   }, [])
 
@@ -155,7 +166,6 @@ export default function Rooms() {
     e.preventDefault()
     if (!formData.namePrefix.trim()) return
 
-    const qty = Math.max(1, Math.min(50, parseInt(formData.quantity) || 1))
     const newRoomsPayload = generatedPreview.map(nameStr => ({
       _id: 'rm-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
       name: nameStr,
@@ -180,7 +190,9 @@ export default function Rooms() {
         setActiveModal(null)
         return
       }
-    } catch (err) {}
+    } catch {
+      setNotice('Unable to save rooms to the database. Showing the entered rooms locally.')
+    }
 
     setRooms(prev => [...prev, ...newRoomsPayload])
     setNotice(`Successfully added ${newRoomsPayload.length} room(s) to ${formData.building}.`)
@@ -201,7 +213,9 @@ export default function Rooms() {
           body: JSON.stringify(editFormData)
         })
       }
-    } catch (err) {}
+    } catch {
+      setNotice('Unable to update the room in the database.')
+    }
 
     setRooms(prev => prev.map(r => r._id === selectedRoom._id ? updated : r))
     setNotice(`Updated room ${editFormData.name}.`)
@@ -215,24 +229,42 @@ export default function Rooms() {
       if (!id.startsWith('rm-')) {
         await fetch(`http://localhost:5000/api/rooms/${id}`, { method: 'DELETE' })
       }
-    } catch (err) {}
+    } catch {
+      setNotice('Unable to delete the room from the database.')
+    }
 
     setRooms(prev => prev.filter(r => r._id !== id))
     setNotice(`Deleted room ${name}.`)
   }
 
   async function handleStatusChange(room, newStatus) {
-    const updated = { ...room, status: newStatus }
+    const updated = { ...room, status: newStatus, assignedTo: newStatus === 'Available' ? '' : room.assignedTo }
 
     try {
       if (!room._id.startsWith('rm-')) {
-        await fetch(`http://localhost:5000/api/rooms/${room._id}`, {
+        const response = await fetch(`http://localhost:5000/api/rooms/${room._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
+          body: JSON.stringify({ status: newStatus, assignedTo: updated.assignedTo })
         })
+        if (!response.ok) throw new Error('Room update failed')
       }
-    } catch (err) {}
+      await fetch('http://localhost:5000/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room: room.name,
+          building: room.building,
+          person: room.assignedTo || 'Unassigned',
+          action: 'Room Status Changed',
+          status: newStatus === 'Available' ? 'Returned' : 'Active',
+          notes: `Status changed from ${room.status} to ${newStatus}.`
+        })
+      })
+    } catch {
+      setNotice('Unable to update the room and record its history.')
+      return
+    }
 
     setRooms(prev => prev.map(r => r._id === room._id ? updated : r))
     setNotice(`Updated status for ${room.name} to ${newStatus}.`)
@@ -569,13 +601,18 @@ export default function Rooms() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700">Assign Occupant / Faculty (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Jordan Lee"
+                <select
                   value={formData.assignedTo}
                   onChange={e => setFormData({ ...formData, assignedTo: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#0d8c7a]"
-                />
+                >
+                  <option value="">Unassigned</option>
+                  {facultyList.map(faculty => (
+                    <option key={faculty._id} value={faculty.name} disabled={faculty.status === 'On leave'}>
+                      {faculty.name} - {faculty.department}{faculty.status === 'On leave' ? ' (On leave)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
@@ -684,13 +721,21 @@ export default function Rooms() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700">Assigned Occupant / Faculty</label>
-                <input
-                  type="text"
-                  placeholder="Unassigned"
+                <select
                   value={editFormData.assignedTo}
                   onChange={e => setEditFormData({ ...editFormData, assignedTo: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#0d8c7a]"
-                />
+                >
+                  <option value="">Unassigned</option>
+                  {editFormData.assignedTo && !facultyList.some(faculty => faculty.name === editFormData.assignedTo) && (
+                    <option value={editFormData.assignedTo}>{editFormData.assignedTo} - Existing assignment</option>
+                  )}
+                  {facultyList.map(faculty => (
+                    <option key={faculty._id} value={faculty.name} disabled={faculty.status === 'On leave'}>
+                      {faculty.name} - {faculty.department}{faculty.status === 'On leave' ? ' (On leave)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">

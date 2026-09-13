@@ -1,91 +1,72 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Building2,
   Plus,
   Search,
   Footprints,
-  X,
-  Sparkles
+  X
 } from 'lucide-react'
 
-const INITIAL_BUILDINGS = {
-  'CCIS Building': {
-    floors: [
-      {
-        level: 4,
-        label: '4th Floor',
-        color: { header: 'bg-[#8b78ca] text-white', bg: 'bg-[#f3f0f9]', border: 'border-[#d8cef2]', text: 'text-[#5d4a9c]' },
-        rooms: [
-          { id: '401', type: 'Classroom', status: 'Available', capacity: 30 },
-          { id: '402', type: 'Classroom', status: 'Available', capacity: 30 },
-          { id: '403', type: 'Classroom', status: 'Reserved', capacity: 35 }
-        ]
-      },
-      {
-        level: 3,
-        label: '3rd Floor',
-        color: { header: 'bg-[#45a892] text-white', bg: 'bg-[#e8f7f3]', border: 'border-[#beebd9]', text: 'text-[#266e5e]' },
-        rooms: [
-          { id: '301', type: 'Lecture Hall', status: 'Available', capacity: 40 },
-          { id: '302', type: 'Lecture Hall', status: 'Occupied', capacity: 40 },
-          { id: '303', type: 'Lecture Hall', status: 'Available', capacity: 40 },
-          { id: '304', type: 'Seminar Room', status: 'Reserved', capacity: 25 },
-          { id: '305', type: 'Seminar Room', status: 'Available', capacity: 25 }
-        ]
-      },
-      {
-        level: 2,
-        label: '2nd Floor',
-        color: { header: 'bg-[#5592e6] text-white', bg: 'bg-[#eaf3fc]', border: 'border-[#c2dcf8]', text: 'text-[#2e62ad]' },
-        rooms: [
-          { id: '306', type: 'Computer Room', status: 'Available', capacity: 30 },
-          { id: '307', type: 'Computer Room', status: 'Occupied', capacity: 30 },
-          { id: 'lab1', type: 'Computer Lab 1', status: 'Occupied', capacity: 45 },
-          { id: 'lab2', type: 'Computer Lab 2', status: 'Available', capacity: 45 },
-          { id: 'lab3', type: 'Computer Lab 3', status: 'Reserved', capacity: 45 }
-        ]
-      },
-      {
-        level: 1,
-        label: '1st Floor',
-        color: { header: 'bg-[#e8ab3c] text-white', bg: 'bg-[#fff8ea]', border: 'border-[#fde6b8]', text: 'text-[#9c6a16]' },
-        rooms: [
-          { id: 'lab4', type: 'Hardware Lab 4', status: 'Available', capacity: 40 },
-          { id: 'multimedia', type: 'Multimedia Hall', status: 'Occupied', capacity: 60 },
-          { id: 'Stairs / Hallway', type: 'Facility / Exit', status: 'Facility', capacity: 0, isFacility: true }
-        ]
+const FLOOR_COLORS = [
+  { header: 'bg-[#e8ab3c] text-white', bg: 'bg-[#fff8ea]', border: 'border-[#fde6b8]', text: 'text-[#9c6a16]' },
+  { header: 'bg-[#5592e6] text-white', bg: 'bg-[#eaf3fc]', border: 'border-[#c2dcf8]', text: 'text-[#2e62ad]' },
+  { header: 'bg-[#45a892] text-white', bg: 'bg-[#e8f7f3]', border: 'border-[#beebd9]', text: 'text-[#266e5e]' },
+  { header: 'bg-[#8b78ca] text-white', bg: 'bg-[#f3f0f9]', border: 'border-[#d8cef2]', text: 'text-[#5d4a9c]' }
+]
+
+function getFloorLabel(level) {
+  const suffix = level === 1 ? 'st' : level === 2 ? 'nd' : level === 3 ? 'rd' : 'th'
+  return `${level}${suffix} Floor`
+}
+
+function normalizeRoomName(value) {
+  return value?.replace(/^Room\s+/i, '').trim().toLowerCase()
+}
+
+function createBuildingsFromRooms(rooms, faculty) {
+  const buildings = {}
+
+  rooms.forEach(room => {
+    if (!room.building || !room.name) return
+
+    const floorLevel = Number(room.floor) || Number.parseInt(room.name, 10) || 1
+    const building = buildings[room.building] || { floors: [] }
+    let floor = building.floors.find(item => item.level === floorLevel)
+
+    if (!floor) {
+      floor = {
+        level: floorLevel,
+        label: getFloorLabel(floorLevel),
+        color: FLOOR_COLORS[(floorLevel - 1) % FLOOR_COLORS.length],
+        rooms: []
       }
-    ]
-  },
-  'North Residence Hall': {
-    floors: [
-      {
-        level: 2,
-        label: '2nd Floor',
-        color: { header: 'bg-[#8b78ca] text-white', bg: 'bg-[#f3f0f9]', border: 'border-[#d8cef2]', text: 'text-[#5d4a9c]' },
-        rooms: [
-          { id: '201', type: 'Double Room', status: 'Available', capacity: 2 },
-          { id: '202', type: 'Double Room', status: 'Occupied', capacity: 2 },
-          { id: '203', type: 'Single Room', status: 'Reserved', capacity: 1 }
-        ]
-      },
-      {
-        level: 1,
-        label: '1st Floor',
-        color: { header: 'bg-[#e8ab3c] text-white', bg: 'bg-[#fff8ea]', border: 'border-[#fde6b8]', text: 'text-[#9c6a16]' },
-        rooms: [
-          { id: '101', type: 'Faculty Suite', status: 'Available', capacity: 3 },
-          { id: '102', type: 'Single Room', status: 'Occupied', capacity: 1 },
-          { id: 'Lobby / Stairs', type: 'Facility', status: 'Facility', capacity: 0, isFacility: true }
-        ]
-      }
-    ]
-  }
+      building.floors.push(floor)
+    }
+
+    floor.rooms.push({
+      _id: room._id,
+      id: room.name,
+      type: room.type,
+      status: room.status,
+      capacity: room.capacity,
+      assignedTo: faculty.find(member => (
+        normalizeRoomName(member.assignedRoom) === normalizeRoomName(room.name) &&
+        (!member.assignedBuilding || member.assignedBuilding === room.building)
+      ))?.name || room.assignedTo || ''
+    })
+    buildings[room.building] = building
+  })
+
+  Object.values(buildings).forEach(building => {
+    building.floors.sort((first, second) => second.level - first.level)
+  })
+
+  return buildings
 }
 
 export default function BuildingStructure() {
-  const [buildings, setBuildings] = useState(INITIAL_BUILDINGS)
-  const [activeBuildingName, setActiveBuildingName] = useState('CCIS Building')
+  const [buildings, setBuildings] = useState({})
+  const [activeBuildingName, setActiveBuildingName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [activeModal, setActiveModal] = useState(false)
@@ -93,7 +74,7 @@ export default function BuildingStructure() {
 
   // Add Room Form State
   const [formData, setFormData] = useState({
-    targetBuilding: 'CCIS Building',
+    targetBuilding: '',
     targetLevel: 4,
     roomId: '',
     roomType: 'Classroom',
@@ -101,17 +82,82 @@ export default function BuildingStructure() {
     status: 'Available'
   })
 
-  const currentBuilding = buildings[activeBuildingName] || buildings['CCIS Building']
+  const currentBuilding = buildings[activeBuildingName]
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadRooms() {
+      try {
+        const [roomsResponse, facultyResponse] = await Promise.all([
+          fetch('http://localhost:5000/api/rooms'),
+          fetch('http://localhost:5000/api/faculty')
+        ])
+        if (!roomsResponse.ok) return
+
+        const rooms = await roomsResponse.json()
+        const faculty = facultyResponse.ok ? await facultyResponse.json() : []
+        if (!isMounted || !Array.isArray(rooms)) return
+
+        const nextBuildings = createBuildingsFromRooms(rooms, Array.isArray(faculty) ? faculty : [])
+        setBuildings(nextBuildings)
+        setActiveBuildingName(current => current && nextBuildings[current] ? current : Object.keys(nextBuildings)[0] || '')
+        setFormData(current => ({
+          ...current,
+          targetBuilding: current.targetBuilding || Object.keys(nextBuildings)[0] || ''
+        }))
+      } catch {
+        setNotice('Unable to load rooms from the database.')
+      }
+    }
+
+    loadRooms()
+    return () => { isMounted = false }
+  }, [])
 
   // Handle reserve or status change
-  function handleToggleRoomStatus(levelIndex, roomId) {
+  async function handleToggleRoomStatus(levelIndex, roomId) {
+    const room = currentBuilding?.floors[levelIndex]?.rooms.find(item => item.id === roomId)
+    if (!room) return
+
+    const nextStatus = room.status === 'Available' ? 'Reserved' : room.status === 'Reserved' ? 'Occupied' : 'Available'
+    const nextAssignedTo = nextStatus === 'Available' ? '' : room.assignedTo
+
+    if (room._id) {
+      try {
+        const response = await fetch(`http://localhost:5000/api/rooms/${room._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus, assignedTo: nextAssignedTo })
+        })
+        if (!response.ok) throw new Error('Status update failed')
+        const historyResponse = await fetch('http://localhost:5000/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room: room.id,
+            building: activeBuildingName,
+            person: room.assignedTo || 'Unassigned',
+            action: 'Room Status Changed',
+            status: nextStatus === 'Available' ? 'Returned' : 'Active',
+            notes: `Status changed from ${room.status} to ${nextStatus}.`
+          })
+        })
+        if (!historyResponse.ok) throw new Error('History update failed')
+      } catch {
+        setNotice('Unable to update room status in the database.')
+        return
+      }
+    }
+
     setBuildings(prev => {
       const copy = JSON.parse(JSON.stringify(prev))
       const b = copy[activeBuildingName]
       if (b && b.floors[levelIndex]) {
         const r = b.floors[levelIndex].rooms.find(rm => rm.id === roomId)
         if (r && !r.isFacility) {
-          r.status = r.status === 'Available' ? 'Reserved' : r.status === 'Reserved' ? 'Occupied' : 'Available'
+          r.status = nextStatus
+          r.assignedTo = nextAssignedTo
           setNotice(`Updated ${r.id} status to ${r.status}.`)
         }
       }
@@ -120,45 +166,66 @@ export default function BuildingStructure() {
     setSelectedRoom(null)
   }
 
-  function handleAddRoomSubmit(e) {
+  async function handleAddRoomSubmit(e) {
     e.preventDefault()
-    if (!formData.roomId.trim()) return
+    if (!formData.roomId.trim() || !formData.targetBuilding.trim()) return
 
-    const newRoomObj = {
-      id: formData.roomId.trim(),
+    const roomPayload = {
+      name: formData.roomId.trim(),
+      building: formData.targetBuilding.trim(),
+      floor: parseInt(formData.targetLevel) || 1,
       type: formData.roomType,
       status: formData.status,
       capacity: parseInt(formData.capacity) || 1
     }
 
+    let createdRoom
+    try {
+      const response = await fetch('http://localhost:5000/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(roomPayload)
+      })
+      if (!response.ok) throw new Error('Room creation failed')
+      createdRoom = await response.json()
+    } catch {
+      setNotice('Unable to save the room to the database.')
+      return
+    }
+
+    const newRoomObj = {
+      _id: createdRoom._id,
+      id: createdRoom.name,
+      type: createdRoom.type,
+      status: createdRoom.status,
+      capacity: createdRoom.capacity
+    }
+
     setBuildings(prev => {
       const copy = JSON.parse(JSON.stringify(prev))
-      const b = copy[formData.targetBuilding]
-      if (b) {
-        let floorObj = b.floors.find(f => f.level === parseInt(formData.targetLevel))
-        if (!floorObj) {
-          const levelNum = parseInt(formData.targetLevel)
-          const colors = [
-            { header: 'bg-[#e8ab3c] text-white', bg: 'bg-[#fff8ea]', border: 'border-[#fde6b8]', text: 'text-[#9c6a16]' },
-            { header: 'bg-[#5592e6] text-white', bg: 'bg-[#eaf3fc]', border: 'border-[#c2dcf8]', text: 'text-[#2e62ad]' },
-            { header: 'bg-[#45a892] text-white', bg: 'bg-[#e8f7f3]', border: 'border-[#beebd9]', text: 'text-[#266e5e]' },
-            { header: 'bg-[#8b78ca] text-white', bg: 'bg-[#f3f0f9]', border: 'border-[#d8cef2]', text: 'text-[#5d4a9c]' }
-          ]
-          floorObj = {
-            level: levelNum,
-            label: `${levelNum}${levelNum === 1 ? 'st' : levelNum === 2 ? 'nd' : levelNum === 3 ? 'rd' : 'th'} Floor`,
-            color: colors[(levelNum - 1) % 4],
-            rooms: []
-          }
-          b.floors.push(floorObj)
-          b.floors.sort((a, b) => b.level - a.level)
+      const buildingName = formData.targetBuilding.trim()
+      const building = copy[buildingName] || { floors: [] }
+      const levelNum = parseInt(formData.targetLevel) || 1
+      let floorObj = building.floors.find(f => f.level === levelNum)
+
+      if (!floorObj) {
+        floorObj = {
+          level: levelNum,
+          label: getFloorLabel(levelNum),
+          color: FLOOR_COLORS[(levelNum - 1) % FLOOR_COLORS.length],
+          rooms: []
         }
-        floorObj.rooms.push(newRoomObj)
+        building.floors.push(floorObj)
+        building.floors.sort((first, second) => second.level - first.level)
       }
+
+      floorObj.rooms.push(newRoomObj)
+      copy[buildingName] = building
       return copy
     })
 
-    setNotice(`Added room ${formData.roomId} to ${formData.targetBuilding}!`)
+    setActiveBuildingName(formData.targetBuilding.trim())
+    setNotice(`Added room ${createdRoom.name} to ${formData.targetBuilding.trim()} and saved it.`)
     setActiveModal(false)
   }
 
@@ -257,7 +324,7 @@ export default function BuildingStructure() {
             {/* STACKED FLOOR ROWS (STRETCHED EVENLY TO FILL VIEWPORT) */}
             <div className="flex-1 flex flex-col min-h-0 divide-y divide-slate-200 overflow-hidden">
               
-              {currentBuilding.floors.map((floor, floorIdx) => {
+              {currentBuilding ? currentBuilding.floors.map((floor, floorIdx) => {
                 const filteredFloorRooms = floor.rooms.filter(rm => {
                   if (!searchQuery.trim()) return true
                   return rm.id.toLowerCase().includes(searchQuery.toLowerCase()) || rm.type.toLowerCase().includes(searchQuery.toLowerCase())
@@ -295,6 +362,7 @@ export default function BuildingStructure() {
                           return (
                             <div
                               key={room.id}
+                              title={room.assignedTo ? `Instructor: ${room.assignedTo}` : 'No instructor assigned'}
                               onClick={() => !isFacility && setSelectedRoom({ room, floorIdx, floorLabel: floor.label })}
                               className={`group rounded-xl border-2 px-3 py-2 bg-white shadow-xs transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col items-center justify-center min-w-[85px] sm:min-w-[110px] text-center shrink-0 ${
                                 isFacility
@@ -327,7 +395,11 @@ export default function BuildingStructure() {
 
                   </div>
                 )
-              })}
+              }) : (
+                <div className="flex flex-1 items-center justify-center p-6 text-center">
+                  <p className="text-xs font-semibold text-slate-400">No rooms found in the database.</p>
+                </div>
+              )}
 
             </div>
 
@@ -357,16 +429,15 @@ export default function BuildingStructure() {
 
             <form onSubmit={handleAddRoomSubmit} className="mt-3 space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700">Target Building</label>
-                <select
+                <label className="block text-xs font-bold text-slate-700">Building *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter the building name"
                   value={formData.targetBuilding}
                   onChange={e => setFormData({ ...formData, targetBuilding: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium outline-none focus:border-[#0d8c7a]"
-                >
-                  {Object.keys(buildings).map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -410,8 +481,8 @@ export default function BuildingStructure() {
                     <option value="Computer Lab">Computer Lab</option>
                     <option value="Multimedia Hall">Multimedia Hall</option>
                     <option value="Seminar Room">Seminar Room</option>
-                    <option value="Single Room">Single Room</option>
-                    <option value="Double Room">Double Room</option>
+                    <option value="Single room">Single room</option>
+                    <option value="Double room">Double room</option>
                   </select>
                 </div>
 
@@ -482,6 +553,7 @@ export default function BuildingStructure() {
               <p><span className="font-bold text-slate-700">Floor:</span> {selectedRoom.floorLabel}</p>
               <p><span className="font-bold text-slate-700">Type:</span> {selectedRoom.room.type}</p>
               <p><span className="font-bold text-slate-700">Capacity:</span> {selectedRoom.room.capacity} Persons</p>
+              <p><span className="font-bold text-slate-700">Instructor:</span> {selectedRoom.room.assignedTo || 'Unassigned'}</p>
               <p className="flex items-center gap-1.5">
                 <span className="font-bold text-slate-700">Status:</span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${

@@ -8,8 +8,44 @@ const Event = require("./models/Event");
 const Faculty = require("./models/Faculty");
 const Room = require("./models/Room");
 const History = require("./models/History");
+const Message = require("./models/Message");
+const { sendInstructorEmail } = require("./utils/mailer");
+
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST", "PATCH", "PUT", "DELETE"]
+    }
+});
+
+io.on("connection", (socket) => {
+    console.log("Socket connected:", socket.id);
+
+    socket.on("join_department", (dept) => {
+        if (dept) {
+            const roomName = `dept_${dept.toLowerCase().trim()}`;
+            socket.join(roomName);
+            console.log(`Socket ${socket.id} joined ${roomName}`);
+        }
+    });
+
+    socket.on("join_faculty", (facultyId) => {
+        if (facultyId) {
+            const roomName = `faculty_${facultyId}`;
+            socket.join(roomName);
+            console.log(`Socket ${socket.id} joined ${roomName}`);
+        }
+    });
+
+    socket.on("disconnect", () => {
+        console.log("Socket disconnected:", socket.id);
+    });
+});
 
 app.use(cors());
 app.use(express.json());
@@ -153,19 +189,99 @@ app.get("/api/faculty", async (req, res) => {
     }
 });
 
+app.post("/api/faculty/login", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const normalizedEmail = email?.trim().toLowerCase();
+
+        if (!normalizedEmail || !password) {
+            return res.status(400).json({ message: "Enter your faculty email and password." });
+        }
+
+        const faculty = await Faculty.findOne({ email: normalizedEmail }).select("+passwordHash");
+        if (!faculty) {
+            return res.status(401).json({ message: "No faculty account found with this email." });
+        }
+
+        if (faculty.status === "Inactive") {
+            return res.status(403).json({ message: "Your faculty account is currently inactive." });
+        }
+
+        if (faculty.passwordHash) {
+            const isMatch = await passwordsMatch(password, faculty.passwordHash);
+            if (!isMatch) {
+                return res.status(401).json({ message: "Invalid email or password." });
+            }
+        } else {
+            // First time login for existing faculty record — set initial password to what was provided
+            faculty.passwordHash = await hashPassword(password);
+            await faculty.save();
+        }
+
+        return res.json({
+            message: "Faculty signed in successfully.",
+            faculty: {
+                _id: faculty._id,
+                id: faculty._id,
+                name: faculty.name,
+                email: faculty.email,
+                department: faculty.department,
+                role: faculty.role,
+                assignedBuilding: faculty.assignedBuilding,
+                assignedRoom: faculty.assignedRoom,
+                phone: faculty.phone,
+                status: faculty.status
+            }
+        });
+    } catch (error) {
+        console.error("Faculty login error:", error);
+        return res.status(500).json({ message: "Unable to sign in: " + error.message });
+    }
+});
+
 app.post("/api/faculty", async (req, res) => {
     try {
-        const newFaculty = await Faculty.create(req.body);
+        const { name, email, department, role, assignedBuilding, assignedRoom, phone, status, password } = req.body;
+        if (!name || !email) {
+            return res.status(400).json({ message: "Faculty name and email are required." });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const existing = await Faculty.findOne({ email: normalizedEmail });
+        if (existing) {
+            return res.status(409).json({ message: "A faculty member with this email already exists." });
+        }
+
+        const initialPassword = password || "faculty123";
+        const passwordHash = await hashPassword(initialPassword);
+
+        const newFaculty = await Faculty.create({
+            name: name.trim(),
+            email: normalizedEmail,
+            department: department || "Computer Science",
+            role: role || "Professor",
+            assignedBuilding: assignedBuilding || "Main Campus",
+            assignedRoom: assignedRoom || "",
+            phone: phone || "",
+            status: status || "Active",
+            passwordHash
+        });
+
         return res.status(201).json(newFaculty);
     } catch (error) {
         console.error("Create faculty error:", error);
-        return res.status(400).json({ message: "Failed to create faculty member." });
+        return res.status(400).json({ message: "Failed to create faculty member: " + error.message });
     }
 });
 
 app.put("/api/faculty/:id", async (req, res) => {
     try {
-        const updatedFaculty = await Faculty.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const updateData = { ...req.body };
+        if (updateData.password) {
+            updateData.passwordHash = await hashPassword(updateData.password);
+            delete updateData.password;
+        }
+        const updatedFaculty = await Faculty.findByIdAndUpdate(req.params.id, updateData, { new: true });
         if (!updatedFaculty) return res.status(404).json({ message: "Faculty member not found." });
         return res.json(updatedFaculty);
     } catch (error) {
@@ -253,6 +369,225 @@ app.post("/api/history", async (req, res) => {
     }
 });
 
+// Email Messaging Route
+app.post("/api/messages/send-email", async (req, res) => {
+    try {
+        const { to, instructorName, senderName, senderEmail, subject, message, room } = req.body;
+
+        if (!to || !message) {
+            return res.status(400).json({ message: "Recipient email and message text are required." });
+        }
+
+        const result = await sendInstructorEmail({
+            to,
+            instructorName,
+            senderName,
+            senderEmail,
+            subject,
+            message,
+            room
+        });
+
+        return res.json({
+            message: "Email sent to instructor successfully.",
+            result
+        });
+    } catch (error) {
+        console.error("Send email error:", error);
+        return res.status(500).json({ message: "Failed to send email to instructor: " + error.message });
+    }
+});
+
+// Department-Scoped Chat Routes (faculty see only their department's messages)
+app.get("/api/messages/department/:department", async (req, res) => {
+    try {
+        const dept = decodeURIComponent(req.params.department);
+        const deptRegex = new RegExp(`^${dept.trim()}$`, "i");
+        const facultyInDept = await Faculty.find({ department: deptRegex });
+        const facultyIds = facultyInDept.map((f) => f._id.toString());
+
+        const messages = await Message.find({
+            $or: [
+                { department: deptRegex },
+                { facultyId: { $in: facultyIds } }
+            ]
+        }).sort({ createdAt: 1 });
+        return res.json(messages);
+    } catch (error) {
+        console.error("Fetch dept messages error:", error);
+        return res.status(500).json({ message: "Failed to fetch department messages: " + error.message });
+    }
+});
+
+app.post("/api/messages/department/:department", async (req, res) => {
+    try {
+        const dept = decodeURIComponent(req.params.department);
+        const { facultyId, sender, senderName, senderEmail, text, room } = req.body;
+
+        if (!text || !sender) {
+            return res.status(400).json({ message: "Sender and text are required." });
+        }
+
+        let assignedFacultyId = facultyId || "";
+        if (!assignedFacultyId && senderEmail) {
+            const fac = await Faculty.findOne({ email: senderEmail.trim().toLowerCase() });
+            if (fac) assignedFacultyId = fac._id.toString();
+        }
+
+        const newMsg = await Message.create({
+            facultyId: assignedFacultyId,
+            department: dept,
+            sender,
+            senderName: senderName || (sender === "admin" ? "Campus Administrator" : "Faculty Member"),
+            senderEmail: senderEmail || "",
+            text,
+            room: room || "",
+            emailDispatched: false,
+            readByAdmin: sender === "admin",
+            readByFaculty: sender === "faculty"
+        });
+
+        const roomName = `dept_${dept.toLowerCase().trim()}`;
+        io.to(roomName).emit("new_message", newMsg);
+        if (assignedFacultyId) {
+            io.to(`faculty_${assignedFacultyId}`).emit("new_message", newMsg);
+        }
+        io.emit("new_message", newMsg);
+
+        return res.status(201).json(newMsg);
+    } catch (error) {
+        console.error("Create dept message error:", error);
+        return res.status(500).json({ message: "Failed to create message: " + error.message });
+    }
+});
+
+app.patch("/api/messages/department/:department/read", async (req, res) => {
+    try {
+        const dept = decodeURIComponent(req.params.department);
+        const { reader } = req.body;
+        const update = reader === "faculty" ? { readByFaculty: true } : { readByAdmin: true };
+        const deptRegex = new RegExp(`^${dept.trim()}$`, "i");
+        await Message.updateMany({ department: deptRegex }, { $set: update });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error("Mark dept read error:", error);
+        return res.status(500).json({ message: "Failed to mark messages as read" });
+    }
+});
+
+// Two-Way Messages Route between Admin & Faculty
+app.get("/api/messages/faculty/:facultyId", async (req, res) => {
+    try {
+        const { facultyId } = req.params;
+        let dept = "";
+        if (mongoose.Types.ObjectId.isValid(facultyId)) {
+            const faculty = await Faculty.findById(facultyId);
+            if (faculty) dept = faculty.department;
+        }
+
+        const queryConditions = [{ facultyId }];
+        if (dept) {
+            queryConditions.push({ department: new RegExp(`^${dept.trim()}$`, "i") });
+        }
+
+        const messages = await Message.find({ $or: queryConditions }).sort({ createdAt: 1 });
+        return res.json(messages);
+    } catch (error) {
+        console.error("Fetch messages error:", error);
+        return res.status(500).json({ message: "Failed to fetch messages: " + error.message });
+    }
+});
+
+app.post("/api/messages/faculty/:facultyId", async (req, res) => {
+    try {
+        const { facultyId } = req.params;
+        const { sender, senderName, senderEmail, text, room, shouldSendEmail } = req.body;
+
+        if (!text || !sender) {
+            return res.status(400).json({ message: "Sender and text are required." });
+        }
+
+        let deptName = req.body.department || "";
+        let targetEmail = req.body.emailRecipient;
+        let targetName = req.body.recipientName || "Instructor";
+
+        if (mongoose.Types.ObjectId.isValid(facultyId)) {
+            const faculty = await Faculty.findById(facultyId);
+            if (faculty) {
+                if (!deptName) deptName = faculty.department;
+                if (!targetEmail) targetEmail = faculty.email;
+                if (!targetName || targetName === "Instructor") targetName = faculty.name;
+            }
+        }
+
+        let emailDispatched = false;
+        let emailRecipient = "";
+        let emailPreviewUrl = "";
+
+        // If admin sent message and requested email dispatch
+        if (sender === "admin" && shouldSendEmail !== false) {
+            if (targetEmail) {
+                try {
+                    const mailRes = await sendInstructorEmail({
+                        to: targetEmail,
+                        instructorName: targetName,
+                        senderName: senderName || "Campus Administrator",
+                        senderEmail: senderEmail || "admin@crms.local",
+                        subject: `[CRMS] New message from Campus Staff regarding ${room || "Campus Facility"}`,
+                        message: text,
+                        room
+                    });
+                    emailDispatched = true;
+                    emailRecipient = targetEmail;
+                    emailPreviewUrl = mailRes.previewUrl || "";
+                } catch (emailErr) {
+                    console.error("Email dispatch in message post failed:", emailErr.message);
+                }
+            }
+        }
+
+        const newMsg = await Message.create({
+            facultyId,
+            department: deptName || "Computer Science",
+            sender,
+            senderName: senderName || (sender === "admin" ? "Campus Administrator" : "Faculty Member"),
+            senderEmail: senderEmail || "",
+            text,
+            room: room || "",
+            emailDispatched,
+            emailRecipient,
+            emailPreviewUrl,
+            readByAdmin: sender === "admin",
+            readByFaculty: sender === "faculty"
+        });
+
+        io.to(`faculty_${facultyId}`).emit("new_message", newMsg);
+        if (newMsg.department) {
+            io.to(`dept_${newMsg.department.toLowerCase().trim()}`).emit("new_message", newMsg);
+        }
+        io.emit("new_message", newMsg);
+
+        return res.status(201).json(newMsg);
+    } catch (error) {
+        console.error("Create message error:", error);
+        return res.status(500).json({ message: "Failed to create message: " + error.message });
+    }
+});
+
+app.patch("/api/messages/faculty/:facultyId/read", async (req, res) => {
+    try {
+        const { facultyId } = req.params;
+        const { reader } = req.body; // 'admin' or 'faculty'
+
+        const update = reader === "faculty" ? { readByFaculty: true } : { readByAdmin: true };
+        await Message.updateMany({ facultyId }, { $set: update });
+        return res.json({ success: true });
+    } catch (error) {
+        console.error("Mark read error:", error);
+        return res.status(500).json({ message: "Failed to mark messages as read" });
+    }
+});
+
 app.get("/", (req, res) => {
     res.json({
         message: "MERN backend is running!"
@@ -261,6 +596,6 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} with Socket.io real-time engine`);
 });

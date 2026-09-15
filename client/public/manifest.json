@@ -1,0 +1,16 @@
+{
+  "name": "CRMS Faculty Mobile App",
+  "short_name": "Faculty CRMS",
+  "description": "Official Mobile Portal for Faculty & Room Management",
+  "start_url": "/faculty",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d8c7a",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import {
   X,
   Sparkles
 } from 'lucide-react'
+import { isWithinSchoolHours, useDashboardSettings } from '../settings'
 
 const INITIAL_ROOMS = [
   { _id: 'rm-1', name: 'Room A-101', building: 'North Hall', type: 'Single room', capacity: 1, status: 'Available', assignedTo: '' },
@@ -29,9 +30,22 @@ const ROOM_STATUSES = ['Available', 'Occupied', 'Reserved', 'Under maintenance']
 export default function Rooms() {
   const [rooms, setRooms] = useState(INITIAL_ROOMS)
   const [facultyList, setFacultyList] = useState([])
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try {
+      return sessionStorage.getItem('crms_room_search') || ''
+    } catch {
+      return ''
+    }
+  })
   const [selectedBuilding, setSelectedBuilding] = useState('All Buildings')
   const [selectedStatus, setSelectedStatus] = useState('all')
+  const displaySettings = useDashboardSettings()
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('crms_room_search', searchQuery)
+    } catch {}
+  }, [searchQuery])
   
   const [activeModal, setActiveModal] = useState(null) // null | 'add' | 'edit'
   const [selectedRoom, setSelectedRoom] = useState(null)
@@ -59,15 +73,46 @@ export default function Rooms() {
     assignedTo: ''
   })
 
-  // Fetch rooms from backend API if available
   useEffect(() => {
     let isMounted = true
+    let previousStatuses = null
+
     async function fetchRooms() {
       try {
         const res = await fetch('http://localhost:5000/api/rooms')
         if (res.ok) {
           const data = await res.json()
           if (isMounted && Array.isArray(data) && data.length > 0) {
+            if (previousStatuses && displaySettings.roomStatusAlerts && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              data.forEach(room => {
+                if (previousStatuses[room._id] && previousStatuses[room._id] !== room.status) {
+                  new Notification(`Room status changed: ${room.name}`, { body: `${previousStatuses[room._id]} -> ${room.status}` })
+                  // Play chime sound alongside the browser notification
+                  try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+                    const masterGain = ctx.createGain()
+                    masterGain.gain.setValueAtTime(0.28, ctx.currentTime)
+                    masterGain.connect(ctx.destination)
+                    ;[{ freq: 880, start: 0, dur: 0.18 }, { freq: 1108, start: 0.16, dur: 0.22 }].forEach(({ freq, start, dur }) => {
+                      const osc = ctx.createOscillator()
+                      const gain = ctx.createGain()
+                      osc.type = 'sine'
+                      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
+                      gain.gain.setValueAtTime(0, ctx.currentTime + start)
+                      gain.gain.linearRampToValueAtTime(1, ctx.currentTime + start + 0.02)
+                      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+                      osc.connect(gain)
+                      gain.connect(masterGain)
+                      osc.start(ctx.currentTime + start)
+                      osc.stop(ctx.currentTime + start + dur)
+                    })
+                    setTimeout(() => ctx.close(), 800)
+                  } catch {}
+                }
+              })
+            }
+
+            previousStatuses = Object.fromEntries(data.map(room => [room._id, room.status]))
             setRooms(data)
           }
         }
@@ -76,8 +121,16 @@ export default function Rooms() {
       }
     }
     fetchRooms()
-    return () => { isMounted = false }
-  }, [])
+    const refreshTimer = displaySettings.automaticRoomUpdates
+      ? window.setInterval(() => {
+          if (isWithinSchoolHours(displaySettings)) fetchRooms()
+        }, 30000)
+      : null
+    return () => {
+      isMounted = false
+      if (refreshTimer) window.clearInterval(refreshTimer)
+    }
+  }, [displaySettings.automaticRoomUpdates, displaySettings.roomStatusAlerts, displaySettings.schoolStart, displaySettings.schoolEnd])
 
   useEffect(() => {
     let isMounted = true
@@ -366,19 +419,19 @@ export default function Rooms() {
           <table className="w-full text-left text-xs min-w-[750px]">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400 sticky top-0 z-10 border-b border-slate-100">
               <tr>
-                <th className="px-4 py-2.5 font-bold">Room Name</th>
+                {displaySettings.showRoomNumbers && <th className="px-4 py-2.5 font-bold">Room Name</th>}
                 <th className="px-4 py-2.5 font-bold">Building & Wing</th>
                 <th className="px-4 py-2.5 font-bold">Type</th>
                 <th className="px-4 py-2.5 font-bold">Capacity</th>
-                <th className="px-4 py-2.5 font-bold">Status</th>
-                <th className="px-4 py-2.5 font-bold">Occupant / Faculty</th>
+                {displaySettings.showAvailability && <th className="px-4 py-2.5 font-bold">Status</th>}
+                {displaySettings.showInstructors && <th className="px-4 py-2.5 font-bold">Occupant / Faculty</th>}
                 <th className="px-4 py-2.5 font-bold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredRooms.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={4 + Number(displaySettings.showRoomNumbers) + Number(displaySettings.showAvailability) + Number(displaySettings.showInstructors)} className="p-8 text-center text-slate-400">
                     <DoorOpen className="mx-auto h-8 w-8 text-slate-300" />
                     <p className="mt-2 font-bold text-slate-600">No rooms found</p>
                     <p className="mt-1 text-[11px]">Try adjusting your search or filter options.</p>
@@ -395,25 +448,25 @@ export default function Rooms() {
 
                   return (
                     <tr key={room._id} className="hover:bg-slate-50/70 transition text-slate-600">
-                      <td className="px-4 py-3 font-extrabold text-slate-900">
+                      {displaySettings.showRoomNumbers && <td className="px-4 py-3 font-extrabold text-slate-900">
                         <div className="flex items-center gap-2">
                           <span className="rounded-md bg-slate-100 p-1.5 text-[#0d8c7a]">
                             <DoorOpen className="h-4 w-4" />
                           </span>
                           {room.name}
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
+                      </td>}
+                      {displaySettings.showAvailability && <td className="px-4 py-3">
                         <span className="font-semibold text-slate-800 flex items-center gap-1">
                           <Building className="h-3.5 w-3.5 text-slate-400" />
                           {room.building}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </td>}
+                      {displaySettings.showInstructors && <td className="px-4 py-3">
                         <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
                           {room.type}
                         </span>
-                      </td>
+                      </td>}
                       <td className="px-4 py-3 font-semibold text-slate-700">
                         {room.capacity} person{room.capacity > 1 ? 's' : ''}
                       </td>

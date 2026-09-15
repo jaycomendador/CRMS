@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Dashboard from './features/dashboard/Dashboard'
 import Login from './features/auth/Login'
 import Register from './features/auth/Register'
 import LoginLoadingScreen from './features/auth/LoginLoadingScreen'
+import { applyTheme, getSettings } from './features/dashboard/settings'
 
 // Private Route Guard - Protects dashboard pages from unauthorized access
 function PrivateRoute({ staff, children }) {
@@ -24,10 +25,14 @@ function PublicRoute({ staff, children }) {
 function App() {
   const navigate = useNavigate()
 
-  // Persistent Auth State initialized from localStorage (Prevents logout on refresh)
+  useEffect(() => {
+    applyTheme(getSettings().theme)
+  }, [])
+
+  // Tab-scoped auth state initialized from sessionStorage (Clears when the tab closes)
   const [staff, setStaff] = useState(() => {
     try {
-      const savedStaff = localStorage.getItem('crms_staff_session')
+      const savedStaff = sessionStorage.getItem('crms_staff_session')
       return savedStaff ? JSON.parse(savedStaff) : null
     } catch (err) {
       return null
@@ -46,7 +51,7 @@ function App() {
   const handleLoadingFinish = useCallback(() => {
     if (!loadingStaff) return
     try {
-      localStorage.setItem('crms_staff_session', JSON.stringify(loadingStaff))
+      sessionStorage.setItem('crms_staff_session', JSON.stringify(loadingStaff))
     } catch (err) {}
     setStaff(loadingStaff)
     setLoadingStaff(null)
@@ -56,7 +61,7 @@ function App() {
   // Handle staff logout
   function handleLogout() {
     try {
-      localStorage.removeItem('crms_staff_session')
+      sessionStorage.removeItem('crms_staff_session')
     } catch (err) {}
     setStaff(null)
     navigate('/login')
@@ -97,6 +102,7 @@ function App() {
             </PublicRoute>
           }
         />
+
 
         {/* Private Protected Route */}
         <Route

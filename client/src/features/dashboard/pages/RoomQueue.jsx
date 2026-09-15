@@ -6,6 +6,7 @@ import {
   Footprints,
   X
 } from 'lucide-react'
+import { isWithinSchoolHours, useDashboardSettings } from '../settings'
 
 const FLOOR_COLORS = [
   { header: 'bg-[#e8ab3c] text-white', bg: 'bg-[#fff8ea]', border: 'border-[#fde6b8]', text: 'text-[#9c6a16]' },
@@ -71,6 +72,7 @@ export default function BuildingStructure() {
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [activeModal, setActiveModal] = useState(false)
   const [notice, setNotice] = useState('')
+  const displaySettings = useDashboardSettings()
 
   // Add Room Form State
   const [formData, setFormData] = useState({
@@ -112,8 +114,16 @@ export default function BuildingStructure() {
     }
 
     loadRooms()
-    return () => { isMounted = false }
-  }, [])
+    const refreshTimer = displaySettings.automaticRoomUpdates
+      ? window.setInterval(() => {
+          if (isWithinSchoolHours(displaySettings)) loadRooms()
+        }, 30000)
+      : null
+    return () => {
+      isMounted = false
+      if (refreshTimer) window.clearInterval(refreshTimer)
+    }
+  }, [displaySettings.automaticRoomUpdates, displaySettings.schoolStart, displaySettings.schoolEnd])
 
   // Handle reserve or status change
   async function handleToggleRoomStatus(levelIndex, roomId) {
@@ -362,7 +372,7 @@ export default function BuildingStructure() {
                           return (
                             <div
                               key={room.id}
-                              title={room.assignedTo ? `Instructor: ${room.assignedTo}` : 'No instructor assigned'}
+                              title={displaySettings.showInstructors ? (room.assignedTo ? `Instructor: ${room.assignedTo}` : 'No instructor assigned') : undefined}
                               onClick={() => !isFacility && setSelectedRoom({ room, floorIdx, floorLabel: floor.label })}
                               className={`group rounded-xl border-2 px-3 py-2 bg-white shadow-xs transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col items-center justify-center min-w-[85px] sm:min-w-[110px] text-center shrink-0 ${
                                 isFacility
@@ -376,9 +386,9 @@ export default function BuildingStructure() {
                             >
                               <p className={`text-xs font-black tracking-tight ${isFacility ? 'text-slate-500 text-[11px] flex items-center gap-1' : 'text-slate-900'}`}>
                                 {isFacility && <Footprints className="h-3 w-3 text-slate-400 shrink-0" />}
-                                {room.id}
+                                {displaySettings.showRoomNumbers && room.id}
                               </p>
-                              {!isFacility && (
+                              {!isFacility && displaySettings.showAvailability && (
                                 <div className="mt-0.5 flex items-center justify-center gap-1">
                                   <span className={`inline-block h-1.5 w-1.5 rounded-full ${
                                     isAvailable ? 'bg-emerald-500' : isReserved ? 'bg-amber-500' : 'bg-slate-700'
@@ -538,7 +548,7 @@ export default function BuildingStructure() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-1.5">
                 <Building2 className="h-4 w-4 text-[#0d8c7a]" />
-                Room {selectedRoom.room.id}
+                {displaySettings.showRoomNumbers ? `Room ${selectedRoom.room.id}` : 'Room details'}
               </h3>
               <button
                 type="button"
@@ -553,15 +563,15 @@ export default function BuildingStructure() {
               <p><span className="font-bold text-slate-700">Floor:</span> {selectedRoom.floorLabel}</p>
               <p><span className="font-bold text-slate-700">Type:</span> {selectedRoom.room.type}</p>
               <p><span className="font-bold text-slate-700">Capacity:</span> {selectedRoom.room.capacity} Persons</p>
-              <p><span className="font-bold text-slate-700">Instructor:</span> {selectedRoom.room.assignedTo || 'Unassigned'}</p>
-              <p className="flex items-center gap-1.5">
+              {displaySettings.showInstructors && <p><span className="font-bold text-slate-700">Instructor:</span> {selectedRoom.room.assignedTo || 'Unassigned'}</p>}
+              {displaySettings.showAvailability && <p className="flex items-center gap-1.5">
                 <span className="font-bold text-slate-700">Status:</span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   selectedRoom.room.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : selectedRoom.room.status === 'Reserved' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800'
                 }`}>
                   {selectedRoom.room.status}
                 </span>
-              </p>
+              </p>}
             </div>
 
             <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">

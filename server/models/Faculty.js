@@ -38,6 +38,10 @@ const facultySchema = new mongoose.Schema(
             type: String,
             enum: ["Active", "On leave", "Inactive"],
             default: "Active"
+        },
+        passwordHash: {
+            type: String,
+            select: false
         }
     },
     { timestamps: true }

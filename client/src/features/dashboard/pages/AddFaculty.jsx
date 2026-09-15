@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { UserPlus, CheckCircle, Mail, Building, Phone, User, Loader2 } from 'lucide-react'
 
 const DEPARTMENTS = [
@@ -10,11 +10,19 @@ const DEPARTMENTS = [
   'Humanities'
 ]
 
+const ROLES = [
+  'Instructor',
+  'Part-timer',
+  'Dean',
+  'Professor'
+]
+
 const EMPTY_FORM = {
   name: '',
   email: '',
+  password: '',
   department: 'Computer Science',
-  role: '',
+  role: 'Instructor',
   assignedBuilding: '',
   phone: '',
   status: 'Active'
@@ -24,6 +32,26 @@ export default function AddFaculty({ onFacultyAdded }) {
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [statusNotice, setStatusNotice] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [buildings, setBuildings] = useState([])
+  const [buildingsLoading, setBuildingsLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/rooms')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          // Extract unique building names from the database
+          const extracted = [...new Set(data.map(r => r.building).filter(Boolean))]
+          setBuildings(extracted)
+          // Set the first building as default if available
+          if (extracted.length > 0) {
+            setFormData(prev => ({ ...prev, assignedBuilding: extracted[0] }))
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setBuildingsLoading(false))
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -111,7 +139,18 @@ export default function AddFaculty({ onFacultyAdded }) {
             </div>
           </div>
 
-          {/* Department & Role */}
+          {/* Initial Mobile Password */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700">Mobile App Initial Password</label>
+            <input
+              type="text" placeholder="Defaults to: faculty123"
+              value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium outline-none focus:border-[#0d8c7a]"
+            />
+            <p className="mt-1 text-[11px] text-slate-400">Faculty member will use this password to sign into the CRMS mobile app. Default is <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700">faculty123</code>.</p>
+          </div>
+
+          {/* Department & Role Category */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-bold text-slate-700">Department</label>
@@ -124,24 +163,36 @@ export default function AddFaculty({ onFacultyAdded }) {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700">Role / Position</label>
-              <input
-                type="text" placeholder="e.g. Associate Professor"
+              <select
                 value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
                 className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium outline-none focus:border-[#0d8c7a]"
-              />
+              >
+                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
             </div>
           </div>
 
-          {/* Building */}
+          {/* Building Category */}
           <div>
             <label className="block text-xs font-bold text-slate-700">Assigned Building</label>
             <div className="relative mt-1">
-              <Building className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text" placeholder="e.g. West Residence"
-                value={formData.assignedBuilding} onChange={e => setFormData({ ...formData, assignedBuilding: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-xs font-medium outline-none focus:border-[#0d8c7a]"
-              />
+              <Building className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              {buildingsLoading ? (
+                <div className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-xs font-medium text-slate-400">
+                  Loading buildings from database…
+                </div>
+              ) : buildings.length === 0 ? (
+                <div className="w-full rounded-lg border border-amber-200 bg-amber-50 pl-9 pr-3 py-2 text-xs font-medium text-amber-700">
+                  ⚠ No buildings found. Add rooms in Room Management first.
+                </div>
+              ) : (
+                <select
+                  value={formData.assignedBuilding} onChange={e => setFormData({ ...formData, assignedBuilding: e.target.value })}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-xs font-medium outline-none focus:border-[#0d8c7a]"
+                >
+                  {buildings.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              )}
             </div>
           </div>
 

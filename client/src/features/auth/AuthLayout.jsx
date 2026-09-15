@@ -56,7 +56,7 @@ export default function AuthLayout({ children, eyebrow, title, description, vari
         </div>
         <p className="relative z-10 mt-8 text-xs text-slate-400">A calmer way to manage campus living.</p>
       </section>
-      <section className="flex min-h-0 items-center justify-center overflow-hidden bg-white p-4 sm:p-8 lg:p-12">
+      <section className="flex min-h-0 items-center justify-center overflow-y-auto bg-white p-4 sm:p-8 lg:p-12">
         <div className={`w-full max-w-md auth-card-enter-${variant === 'register' ? 'right' : 'left'}`}><FormBrand />{children}</div>
       </section>
     </div>

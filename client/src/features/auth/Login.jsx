@@ -67,58 +67,26 @@ export default function Login({ onRegister, onLogin }) {
     })
   }
 
-  // Trigger browser PWA install or download shortcut
-  function handleInstallApp() {
-    if (deferredPrompt) {
-      deferredPrompt.prompt()
-      deferredPrompt.userChoice.then(() => {
-        setDeferredPrompt(null)
-      })
-      return
-    }
-
-    // Download standalone app shortcut launcher file
-    downloadAppShortcut()
-  }
-
-  // Download a web application shortcut launcher file (.html)
-  function downloadAppShortcut() {
-    const portalUrl = `${window.location.origin}/faculty`
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>CRMS Faculty Mobile App</title>
-  <meta http-equiv="refresh" content="0;url=${portalUrl}">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0d8c7a">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 48px 24px; background: #0d8c7a; color: #ffffff; }
-    .card { background: #ffffff; color: #1e293b; max-width: 420px; margin: 40px auto; padding: 32px; border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
-    h1 { font-size: 20px; margin: 0 0 8px 0; color: #0f172a; }
-    p { font-size: 14px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5; }
-    a.btn { display: inline-block; background: #0d8c7a; color: #ffffff; font-weight: bold; font-size: 14px; padding: 12px 28px; border-radius: 12px; text-decoration: none; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>CRMS Faculty Mobile App</h1>
-    <p>Launching your official Instructor & Room Management Mobile Portal...</p>
-    <a class="btn" href="${portalUrl}">Open Faculty App Now</a>
-  </div>
-  <script>window.location.href = "${portalUrl}";</script>
-</body>
-</html>`
-
-    const blob = new Blob([htmlContent], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
+  // Trigger direct download of the React Native Android APK file
+  function downloadFacultyApk() {
+    const apkUrl = '/downloads/CRMS-Faculty-App.apk'
     const a = document.createElement('a')
-    a.href = url
-    a.download = 'CRMS-Faculty-App.html'
+    a.href = apkUrl
+    a.download = 'CRMS-Faculty-App.apk'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+  }
+
+  // Trigger download of the React Native source project zip file
+  function downloadFacultySourceZip() {
+    const zipUrl = '/downloads/CRMS-Faculty-App-Source.zip'
+    const a = document.createElement('a')
+    a.href = zipUrl
+    a.download = 'CRMS-Faculty-App-Source.zip'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   return (
@@ -208,26 +176,34 @@ export default function Login({ onRegister, onLogin }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="rounded-full bg-emerald-600 px-2 py-0.2 text-[9px] font-bold text-white uppercase tracking-wider">
-                Faculty Portal
+                React Native
               </span>
-              <span className="text-[11px] text-emerald-800 font-semibold">Mobile Edition</span>
+              <span className="text-[11px] text-emerald-800 font-semibold">Faculty Mobile App</span>
             </div>
             <h3 className="text-sm font-bold text-[#12354a] mt-1">
-              Download CRMS Faculty App
+              Download CRMS Faculty App (.apk)
             </h3>
             <p className="text-[11px] text-slate-600 leading-snug mt-0.5">
-              For instructors to communicate directly with campus admin chat, receive room updates & manage keys.
+              Official React Native mobile application for instructors to chat with admin, receive room notifications & manage keys.
             </p>
 
             {/* Action Buttons */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowDownloadModal(true)}
+                onClick={downloadFacultyApk}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#0d8c7a] px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-[#0d8c7a]/20 hover:bg-[#087364] active:scale-95 transition"
               >
-                <Smartphone className="h-4 w-4" />
-                <span>Open Faculty App Info</span>
+                <Download className="h-4 w-4" />
+                <span>Download APK (.apk)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDownloadModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#0d8c7a]/30 bg-white/80 px-3 py-2 text-xs font-bold text-[#0d8c7a] hover:bg-white active:scale-95 transition"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                <span>Setup & Expo Guide</span>
               </button>
             </div>
           </div>
@@ -251,12 +227,12 @@ export default function Login({ onRegister, onLogin }) {
                 <img src="/logo.png" alt="CRMS App" className="h-12 w-12 object-contain" />
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-base font-bold text-slate-900">CRMS Faculty App</h3>
+                    <h3 className="text-base font-bold text-slate-900">CRMS Faculty Mobile App</h3>
                     <span className="rounded bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
-                      v1.2
+                      React Native
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500">Official Instructor Mobile Portal</p>
+                  <p className="text-xs text-slate-500">Official Instructor React Native Application</p>
                 </div>
               </div>
               <button
@@ -268,31 +244,50 @@ export default function Login({ onRegister, onLogin }) {
               </button>
             </div>
 
-            {/* Quick Download Action Button */}
-            <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-[#0d8c7a] to-[#086a5b] text-white shadow-md">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-emerald-100">Direct Download</p>
-                  <h4 className="text-sm font-bold mt-0.5">App Shortcut Launcher (.html)</h4>
-                  <p className="text-[10px] text-emerald-100/80 mt-0.5">
-                    Click to download an instant launcher file to your device
-                  </p>
+            {/* Direct Download Options */}
+            <div className="mt-4 space-y-2.5">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0d8c7a] to-[#086a5b] text-white shadow-md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">Mobile Package</p>
+                    <h4 className="text-sm font-bold mt-0.5">Android App Package (.apk)</h4>
+                    <p className="text-[10px] text-emerald-100/90 mt-0.5">
+                      Direct APK installer file for Android smartphones
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadFacultyApk}
+                    className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#0d8c7a] hover:bg-emerald-50 active:scale-95 transition shadow-sm shrink-0"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Download APK</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={downloadAppShortcut}
-                  className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#0d8c7a] hover:bg-emerald-50 active:scale-95 transition shadow-sm shrink-0"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Download</span>
-                </button>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-100/90 border border-slate-200/80 text-slate-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Developer Package</p>
+                    <h4 className="text-xs font-bold text-slate-800 mt-0.5">React Native App Project (.zip)</h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadFacultySourceZip}
+                    className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-900 active:scale-95 transition shadow-xs shrink-0"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download ZIP</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Device Installation Guide Tabs */}
             <div className="mt-5">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                Install on your Mobile Phone:
+                Installation & Setup Guide:
               </p>
 
               <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-semibold mb-3">
@@ -303,7 +298,7 @@ export default function Login({ onRegister, onLogin }) {
                     deviceTab === 'android' ? 'bg-white text-[#0d8c7a] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Android (Chrome)
+                  Android APK
                 </button>
                 <button
                   type="button"
@@ -312,7 +307,7 @@ export default function Login({ onRegister, onLogin }) {
                     deviceTab === 'ios' ? 'bg-white text-[#0d8c7a] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  iPhone (Safari)
+                  Expo Go (Live)
                 </button>
                 <button
                   type="button"
@@ -321,7 +316,7 @@ export default function Login({ onRegister, onLogin }) {
                     deviceTab === 'pc' ? 'bg-white text-[#0d8c7a] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  PC / Chrome
+                  Web Version
                 </button>
               </div>
 
@@ -331,15 +326,15 @@ export default function Login({ onRegister, onLogin }) {
                   <>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">1</span>
-                      <p>Open <strong className="text-slate-900">Chrome</strong> on your Android phone and visit the mobile app link.</p>
+                      <p>Tap <strong className="text-[#0d8c7a]">Download APK</strong> above to save <code className="bg-slate-200 px-1 py-0.5 rounded text-[11px]">CRMS-Faculty-App.apk</code> on your phone.</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">2</span>
-                      <p>Tap the menu icon <strong className="text-slate-900">(⋮)</strong> at the top right of the browser.</p>
+                      <p>Open your phone&apos;s <strong className="text-slate-900">Downloads</strong> folder and tap the APK file.</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">3</span>
-                      <p>Tap <strong className="text-[#0d8c7a]">Install App</strong> or <strong className="text-[#0d8c7a]">Add to Home screen</strong>. The CRMS app icon will appear with your other apps!</p>
+                      <p>If prompted, enable <strong className="text-slate-900">&quot;Allow from this source&quot;</strong> and tap <strong className="text-[#0d8c7a]">Install</strong>!</p>
                     </div>
                   </>
                 )}
@@ -348,15 +343,15 @@ export default function Login({ onRegister, onLogin }) {
                   <>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">1</span>
-                      <p>Open <strong className="text-slate-900">Safari</strong> on your iPhone and visit the mobile app link.</p>
+                      <p>Install <strong className="text-slate-900">Expo Go</strong> app from the Google Play Store or Apple App Store.</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">2</span>
-                      <p>Tap the <strong className="text-slate-900">Share button (⎋)</strong> at the bottom center of the screen.</p>
+                      <p>In terminal, run <code className="bg-slate-200 px-1 py-0.5 rounded text-[11px]">cd faculty-chat-app &amp;&amp; npx expo start</code></p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">3</span>
-                      <p>Scroll down and tap <strong className="text-[#0d8c7a]">Add to Home Screen</strong>. Confirm by tapping <strong className="text-slate-900">Add</strong>!</p>
+                      <p>Scan the QR code with your phone camera or Expo Go to test live on mobile!</p>
                     </div>
                   </>
                 )}
@@ -365,11 +360,11 @@ export default function Login({ onRegister, onLogin }) {
                   <>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">1</span>
-                      <p>Click the <strong className="text-slate-900">Install icon (⊕)</strong> in the right side of Chrome or Edge address bar.</p>
+                      <p>Click <strong className="text-slate-900">Launch Mobile Portal</strong> below to access the responsive web portal in any browser.</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">2</span>
-                      <p>Confirm <strong className="text-[#0d8c7a]">Install</strong> to open the Faculty App as a dedicated window on your taskbar!</p>
+                      <p>Use Chrome or Edge address bar <strong className="text-[#0d8c7a]">Install (⊕)</strong> icon to install as a desktop app!</p>
                     </div>
                   </>
                 )}
@@ -392,7 +387,7 @@ export default function Login({ onRegister, onLogin }) {
                 onClick={() => setShowDownloadModal(false)}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-[#0d8c7a] py-2.5 text-xs font-bold text-white hover:bg-[#087364] active:scale-95 transition shadow-xs"
               >
-                <span>Launch App Now</span>
+                <span>Launch Mobile Portal</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
             </div>

@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
+const path = require("path");
 require("dotenv").config();
 const Staff = require("./models/Staff");
 const Event = require("./models/Event");
@@ -49,6 +50,26 @@ io.on("connection", (socket) => {
 
 app.use(cors());
 app.use(express.json());
+app.use("/downloads", express.static(path.join(__dirname, "../client/public/downloads")));
+
+// Mobile App Download Routes
+app.get("/api/download/apk", (req, res) => {
+    const apkPath = path.join(__dirname, "../client/public/downloads/CRMS-Faculty-App.apk");
+    res.download(apkPath, "CRMS-Faculty-App.apk", (err) => {
+        if (err && !res.headersSent) {
+            res.status(404).json({ message: "APK build file not found." });
+        }
+    });
+});
+
+app.get("/api/download/source", (req, res) => {
+    const zipPath = path.join(__dirname, "../client/public/downloads/CRMS-Faculty-App-Source.zip");
+    res.download(zipPath, "CRMS-Faculty-App-Source.zip", (err) => {
+        if (err && !res.headersSent) {
+            res.status(404).json({ message: "Source ZIP archive not found." });
+        }
+    });
+});
 
 mongoose
     .connect(process.env.MONGO_URI, {

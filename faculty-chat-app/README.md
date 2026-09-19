@@ -19,6 +19,25 @@ npx expo start
 
 Scan the QR code with **Expo Go** on your phone to launch the app.
 
+## Create an Android installer (APK)
+
+The previous `CRMS-Faculty-App.apk` download was a source ZIP with the wrong
+extension, so Android could not install it. Do not rename a ZIP to `.apk`.
+
+To produce a real Android installer, sign in to the Expo account that owns this
+project, then run:
+
+```bash
+cd faculty-chat-app
+npx eas login
+npm run build:apk
+```
+
+When the build completes, download the generated APK from Expo and publish that
+file as `client/public/downloads/CRMS-Faculty-App.apk`. The `preview` profile in
+`eas.json` intentionally produces an installable APK; the `production` profile
+produces an Android App Bundle for the Play Store.
+
 ## Configuration
 
 Edit `src/config.ts` and set `API_BASE` to your server's local IP address:

@@ -60,22 +60,15 @@ export default function Login({ onRegister, onLogin }) {
 
   // Copy mobile app URL
   function handleCopyAppLink() {
-    const portalUrl = `${window.location.origin}/faculty`
+    const portalUrl = `${window.location.origin}/login`
     navigator.clipboard?.writeText(portalUrl).then(() => {
       setCopiedLink(true)
       setTimeout(() => setCopiedLink(false), 2500)
     })
   }
 
-  // Trigger direct download of the React Native Android APK file
-  function downloadFacultyApk() {
-    const apkUrl = '/downloads/CRMS-Faculty-App.apk'
-    const a = document.createElement('a')
-    a.href = apkUrl
-    a.download = 'CRMS-Faculty-App.apk'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+  function openFacultyPortal() {
+    window.location.assign('/login')
   }
 
   // Trigger download of the React Native source project zip file
@@ -176,26 +169,26 @@ export default function Login({ onRegister, onLogin }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="rounded-full bg-emerald-600 px-2 py-0.2 text-[9px] font-bold text-white uppercase tracking-wider">
-                React Native
+                Mobile ready
               </span>
               <span className="text-[11px] text-emerald-800 font-semibold">Faculty Mobile App</span>
             </div>
             <h3 className="text-sm font-bold text-[#12354a] mt-1">
-              Download CRMS Faculty App (.apk)
+              Open CRMS Faculty App
             </h3>
             <p className="text-[11px] text-slate-600 leading-snug mt-0.5">
-              Official React Native mobile application for instructors to chat with admin, receive room notifications & manage keys.
+              Use the faculty portal on any phone or computer. Add it to your home screen for app-like access.
             </p>
 
             {/* Action Buttons */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={downloadFacultyApk}
+                onClick={openFacultyPortal}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#0d8c7a] px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-[#0d8c7a]/20 hover:bg-[#087364] active:scale-95 transition"
               >
                 <Download className="h-4 w-4" />
-                <span>Download APK (.apk)</span>
+                <span>Open Mobile App</span>
               </button>
               <button
                 type="button"
@@ -229,7 +222,7 @@ export default function Login({ onRegister, onLogin }) {
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-base font-bold text-slate-900">CRMS Faculty Mobile App</h3>
                     <span className="rounded bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
-                      React Native
+                      Mobile ready
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">Official Instructor React Native Application</p>
@@ -244,24 +237,24 @@ export default function Login({ onRegister, onLogin }) {
               </button>
             </div>
 
-            {/* Direct Download Options */}
+            {/* Mobile access options */}
             <div className="mt-4 space-y-2.5">
               <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0d8c7a] to-[#086a5b] text-white shadow-md">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">Mobile Package</p>
-                    <h4 className="text-sm font-bold mt-0.5">Android App Package (.apk)</h4>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">Mobile access</p>
+                    <h4 className="text-sm font-bold mt-0.5">Open the Faculty Portal</h4>
                     <p className="text-[10px] text-emerald-100/90 mt-0.5">
-                      Direct APK installer file for Android smartphones
+                      Works in any modern mobile or desktop browser
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={downloadFacultyApk}
+                    onClick={openFacultyPortal}
                     className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#0d8c7a] hover:bg-emerald-50 active:scale-95 transition shadow-sm shrink-0"
                   >
                     <Download className="h-4 w-4" />
-                    <span>Download APK</span>
+                    <span>Open App</span>
                   </button>
                 </div>
               </div>
@@ -298,7 +291,7 @@ export default function Login({ onRegister, onLogin }) {
                     deviceTab === 'android' ? 'bg-white text-[#0d8c7a] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Android APK
+                  Mobile browser
                 </button>
                 <button
                   type="button"
@@ -326,15 +319,15 @@ export default function Login({ onRegister, onLogin }) {
                   <>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">1</span>
-                      <p>Tap <strong className="text-[#0d8c7a]">Download APK</strong> above to save <code className="bg-slate-200 px-1 py-0.5 rounded text-[11px]">CRMS-Faculty-App.apk</code> on your phone.</p>
+                      <p>Tap <strong className="text-[#0d8c7a]">Open App</strong> above to launch the faculty portal on your phone.</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">2</span>
-                      <p>Open your phone&apos;s <strong className="text-slate-900">Downloads</strong> folder and tap the APK file.</p>
+                      <p>Use your browser menu and choose <strong className="text-slate-900">Add to Home screen</strong> or <strong className="text-slate-900">Install app</strong>.</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0d8c7a] text-white text-[10px] font-bold">3</span>
-                      <p>If prompted, enable <strong className="text-slate-900">&quot;Allow from this source&quot;</strong> and tap <strong className="text-[#0d8c7a]">Install</strong>!</p>
+                      <p>Open the new home-screen icon whenever you want to use CRMS Faculty.</p>
                     </div>
                   </>
                 )}
@@ -383,7 +376,7 @@ export default function Login({ onRegister, onLogin }) {
               </button>
 
               <Link
-                to="/faculty"
+                to="/login"
                 onClick={() => setShowDownloadModal(false)}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-[#0d8c7a] py-2.5 text-xs font-bold text-white hover:bg-[#087364] active:scale-95 transition shadow-xs"
               >

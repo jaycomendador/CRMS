@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "faculty-chat-app",
-    "slug": "faculty-chat-app",
+    "name": "CRMS Faculty",
+    "slug": "crms-faculty",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,6 +10,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.crms.faculty",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

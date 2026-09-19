@@ -5,6 +5,8 @@ import Login from './features/auth/Login'
 import Register from './features/auth/Register'
 import LoginLoadingScreen from './features/auth/LoginLoadingScreen'
 import { applyTheme, getSettings } from './features/dashboard/settings'
+import AdminAuth from './features/admin/AdminAuth'
+import AdminDashboard from './features/admin/AdminDashboard'
 
 // Private Route Guard - Protects dashboard pages from unauthorized access
 function PrivateRoute({ staff, children }) {
@@ -41,6 +43,14 @@ function App() {
 
   // Loading screen state: holds the pending staff object while the animation plays
   const [loadingStaff, setLoadingStaff] = useState(null)
+  const [admin, setAdmin] = useState(() => {
+    try {
+      const savedAdmin = sessionStorage.getItem('crms_admin_session')
+      return savedAdmin ? JSON.parse(savedAdmin) : null
+    } catch {
+      return null
+    }
+  })
 
   // Handle successful login — show loading screen first, then navigate
   function handleLogin(staffUser) {
@@ -67,6 +77,18 @@ function App() {
     navigate('/login')
   }
 
+  function handleAdminAuthenticated(adminUser) {
+    sessionStorage.setItem('crms_admin_session', JSON.stringify(adminUser))
+    setAdmin(adminUser)
+    navigate('/admin/dashboard')
+  }
+
+  function handleAdminLogout() {
+    sessionStorage.removeItem('crms_admin_session')
+    setAdmin(null)
+    navigate('/admin/login')
+  }
+
   // Show animated loading screen after a successful login attempt
   if (loadingStaff) {
     return (
@@ -80,6 +102,10 @@ function App() {
   return (
     <main className="h-dvh w-screen overflow-hidden bg-[#f5f7fb]">
       <Routes>
+        <Route path="/admin/login" element={admin ? <Navigate to="/admin/dashboard" replace /> : <AdminAuth mode="login" onAuthenticated={handleAdminAuthenticated} onSwitchMode={() => navigate('/admin/register')} />} />
+        <Route path="/admin/register" element={admin ? <Navigate to="/admin/dashboard" replace /> : <AdminAuth mode="register" onAuthenticated={handleAdminAuthenticated} onSwitchMode={() => navigate('/admin/login')} />} />
+        <Route path="/admin/dashboard" element={admin ? <AdminDashboard admin={admin} onLogout={handleAdminLogout} /> : <Navigate to="/admin/login" replace />} />
+
         {/* Public Routes */}
         <Route
           path="/login"

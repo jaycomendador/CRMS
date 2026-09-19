@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const path = require("path");
 require("dotenv").config();
 const Staff = require("./models/Staff");
+const Admin = require("./models/Admin");
 const Event = require("./models/Event");
 const Faculty = require("./models/Faculty");
 const Room = require("./models/Room");
@@ -50,16 +51,17 @@ io.on("connection", (socket) => {
 
 app.use(cors());
 app.use(express.json());
+
+// The previous file at this URL was a source ZIP renamed to .apk. Never serve
+// it as an Android installer: a real APK must be produced by the Expo build.
+app.get("/downloads/CRMS-Faculty-App.apk", (req, res) => {
+    res.status(410).json({ message: "This APK download was invalid and has been removed. Open the Faculty Portal, or publish a real Expo APK build." });
+});
 app.use("/downloads", express.static(path.join(__dirname, "../client/public/downloads")));
 
 // Mobile App Download Routes
 app.get("/api/download/apk", (req, res) => {
-    const apkPath = path.join(__dirname, "../client/public/downloads/CRMS-Faculty-App.apk");
-    res.download(apkPath, "CRMS-Faculty-App.apk", (err) => {
-        if (err && !res.headersSent) {
-            res.status(404).json({ message: "APK build file not found." });
-        }
-    });
+    res.status(410).json({ message: "This APK download was invalid and has been removed. Build a new APK with the Expo preview profile before publishing it." });
 });
 
 app.get("/api/download/source", (req, res) => {
@@ -97,6 +99,63 @@ async function passwordsMatch(password, passwordHash) {
     const providedPassword = Buffer.from(hashedPassword, "hex");
     return storedPassword.length === providedPassword.length && crypto.timingSafeEqual(storedPassword, providedPassword);
 }
+
+function adminResponse(admin) {
+    return {
+        id: admin._id,
+        name: admin.name,
+        organizationName: admin.organizationName,
+        email: admin.email,
+        role: admin.role
+    };
+}
+
+// Administrator accounts are kept separate from regular staff accounts.
+app.post("/api/admin/auth/register", async (req, res) => {
+    try {
+        const { name, organizationName, email, password } = req.body;
+        if (!name || !organizationName || !email || !password) {
+            return res.status(400).json({ message: "Complete all administrator account fields." });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ message: "Password must be at least 8 characters." });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        if (await Admin.findOne({ email: normalizedEmail })) {
+            return res.status(409).json({ message: "An administrator account already exists for this email." });
+        }
+
+        const admin = await Admin.create({
+            name: name.trim(),
+            organizationName: organizationName.trim(),
+            email: normalizedEmail,
+            passwordHash: await hashPassword(password)
+        });
+        return res.status(201).json({ message: "Administrator account created.", admin: adminResponse(admin) });
+    } catch (error) {
+        console.error("Administrator registration error:", error);
+        return res.status(500).json({ message: "Unable to create the administrator account." });
+    }
+});
+
+app.post("/api/admin/auth/login", async (req, res) => {
+    try {
+        const normalizedEmail = req.body.email?.trim().toLowerCase();
+        const { password } = req.body;
+        if (!normalizedEmail || !password) {
+            return res.status(400).json({ message: "Enter your administrator email and password." });
+        }
+        const admin = await Admin.findOne({ email: normalizedEmail }).select("+passwordHash");
+        if (!admin || !(await passwordsMatch(password, admin.passwordHash))) {
+            return res.status(401).json({ message: "Invalid administrator email or password." });
+        }
+        return res.json({ message: "Administrator signed in.", admin: adminResponse(admin) });
+    } catch (error) {
+        console.error("Administrator login error:", error);
+        return res.status(500).json({ message: "Unable to sign in right now." });
+    }
+});
 
 app.post("/api/auth/register", async (req, res) => {
     try {

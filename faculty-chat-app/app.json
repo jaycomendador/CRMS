@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "CRMS Faculty",
+    "name": "CRMS",
     "slug": "crms-faculty",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,6 +21,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7862f88c-808b-441e-b446-a0a73db6cf65"
+      }
     }
   }
 }

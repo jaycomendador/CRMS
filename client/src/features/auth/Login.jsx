@@ -21,9 +21,12 @@ import AuthLayout from './AuthLayout'
 const GITHUB_REPO = 'jaycomendador/crms'
 
 async function fetchLatestRelease() {
-  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
+  // /releases/latest skips pre-releases — use /releases to always get the newest one
+  const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=1`)
   if (!res.ok) throw new Error('Could not fetch release')
-  const data = await res.json()
+  const list = await res.json()
+  const data = list[0]
+  if (!data) throw new Error('No releases found')
   const apkAsset = data.assets?.find((a) => a.name.toLowerCase().endsWith('.apk'))
   return {
     version: data.tag_name || 'latest',

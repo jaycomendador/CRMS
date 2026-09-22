@@ -11,7 +11,10 @@ import {
   StatusBar,
   ScrollView,
   Dimensions,
+  Image,
 } from "react-native";
+
+const CRMS_LOGO = require("../../assets/crms-logo.png");
 import { useAuth } from "../context/AuthContext";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -49,10 +52,10 @@ export default function LoginScreen() {
         {/* Logo & Branding */}
         <View style={styles.brandSection}>
           <View style={styles.logoRing}>
-            <Text style={styles.logoIcon}>🏛️</Text>
+            <Image source={CRMS_LOGO} style={styles.logoImg} resizeMode="contain" />
           </View>
           <Text style={styles.appName}>CRMS Faculty</Text>
-          <Text style={styles.tagline}>Classroom & Resource Management System</Text>
+          <Text style={styles.tagline}>Classroom &amp; Resource Management System</Text>
         </View>
 
         {/* Login Card */}
@@ -114,9 +117,10 @@ export default function LoginScreen() {
   );
 }
 
-const PURPLE = "#6C47FF";
-const DARK_BG = "#0d0f1c";
-const CARD_BG = "#161929";
+const TEAL   = "#0d8c7a";
+const TEAL2  = "#55d6c1";
+const DARK_BG = "#0c1e30";
+const CARD_BG = "#111e2e";
 
 const styles = StyleSheet.create({
   root: {
@@ -125,7 +129,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: "center",   // ← vertically centers all content
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 40,
@@ -137,18 +141,19 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logoRing: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: PURPLE + "33",
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: TEAL + "22",
     borderWidth: 2,
-    borderColor: PURPLE,
+    borderColor: TEAL2,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  logoIcon: {
-    fontSize: 36,
+  logoImg: {
+    width: 68,
+    height: 68,
   },
   appName: {
     fontSize: 26,
@@ -228,12 +233,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   loginBtn: {
-    backgroundColor: PURPLE,
+    backgroundColor: TEAL,
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: "center",
     marginTop: 4,
-    shadowColor: PURPLE,
+    shadowColor: TEAL,
     shadowOpacity: 0.4,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },

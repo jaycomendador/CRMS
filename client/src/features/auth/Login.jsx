@@ -68,7 +68,7 @@ export default function Login({ onRegister, onLogin }) {
   }
 
   function downloadCrmsApk() {
-    window.location.assign('https://github.com/jaycomendador/crms/releases/download/CRMS/CRMS.apk')
+    window.location.assign('https://github.com/jaycomendador/crms/releases/download/v1.0.0/CRMS.apk')
   }
 
   // Trigger download of the React Native source project zip file

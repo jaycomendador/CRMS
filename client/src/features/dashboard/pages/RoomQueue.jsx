@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
   Building2,
+  Activity,
+  ChevronRight,
   Plus,
   Search,
   Footprints,
@@ -72,6 +74,8 @@ export default function BuildingStructure() {
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [activeModal, setActiveModal] = useState(false)
   const [notice, setNotice] = useState('')
+  const [events, setEvents] = useState([])
+  const [showFlowPanel, setShowFlowPanel] = useState(false)
   const displaySettings = useDashboardSettings()
 
   // Add Room Form State
@@ -91,16 +95,19 @@ export default function BuildingStructure() {
 
     async function loadRooms() {
       try {
-        const [roomsResponse, facultyResponse] = await Promise.all([
+        const [roomsResponse, facultyResponse, eventsResponse] = await Promise.all([
           fetch('http://localhost:5000/api/rooms'),
-          fetch('http://localhost:5000/api/faculty')
+          fetch('http://localhost:5000/api/faculty'),
+          fetch('http://localhost:5000/api/events')
         ])
         if (!roomsResponse.ok) return
 
         const rooms = await roomsResponse.json()
         const faculty = facultyResponse.ok ? await facultyResponse.json() : []
+        const eventRecords = eventsResponse.ok ? await eventsResponse.json() : []
         if (!isMounted || !Array.isArray(rooms)) return
 
+        setEvents(Array.isArray(eventRecords) ? eventRecords : [])
         const nextBuildings = createBuildingsFromRooms(rooms, Array.isArray(faculty) ? faculty : [])
         setBuildings(nextBuildings)
         setActiveBuildingName(current => current && nextBuildings[current] ? current : Object.keys(nextBuildings)[0] || '')
@@ -240,7 +247,7 @@ export default function BuildingStructure() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 w-full max-w-7xl mx-auto overflow-hidden">
+    <div className="relative flex-1 flex flex-col min-h-0 w-full max-w-7xl mx-auto overflow-hidden">
       
       {/* Notice Toast */}
       {notice && (
@@ -279,6 +286,17 @@ export default function BuildingStructure() {
 
           {/* Search & Add Room Button */}
           <div className="flex items-center gap-2.5">
+
+            <button
+              type="button"
+              aria-expanded={showFlowPanel}
+              aria-label={showFlowPanel ? 'Hide room flow and usage' : 'Show room flow and usage'}
+              onClick={() => setShowFlowPanel(value => !value)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition ${showFlowPanel ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Activity className="h-3.5 w-3.5" />
+              {showFlowPanel ? 'Hide Room Flow' : 'Room Flow & Usage'}
+            </button>
             
             <div className="relative">
               <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
@@ -417,6 +435,50 @@ export default function BuildingStructure() {
 
         </div>
 
+      </div>
+
+      {/* Sliding room flow panel; the existing building layout remains underneath. */}
+      <div className={`absolute inset-0 z-30 transition ${showFlowPanel ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!showFlowPanel}>
+        <button type="button" tabIndex={showFlowPanel ? 0 : -1} aria-label="Hide room flow and usage" onClick={() => setShowFlowPanel(false)} className={`absolute inset-0 bg-slate-950/20 transition-opacity ${showFlowPanel ? 'opacity-100' : 'opacity-0'}`} />
+        <aside aria-label="Room flow and usage" className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out ${showFlowPanel ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+            <div><h3 className="flex items-center gap-2 text-sm font-extrabold text-[#1e3a5f]"><Activity className="h-4 w-4" />{activeBuildingName} · Room Flow &amp; Usage</h3><p className="mt-1 text-[11px] text-slate-500">Today’s room schedules from database events</p></div>
+            <button type="button" tabIndex={showFlowPanel ? 0 : -1} onClick={() => setShowFlowPanel(false)} aria-label="Hide room flow and usage" title="Hide room flow and usage" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Activity className="h-4 w-4" /></button>
+          </div>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#f7f9fc] p-3">
+            {(currentBuilding?.floors.flatMap(floor => floor.rooms.map(room => ({ ...room, floorLabel: floor.label }))) || []).map(room => {
+              const now = new Date()
+              const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+              const minutes = value => {
+                const [hours, mins] = (value || '').split(':').map(Number)
+                return Number.isFinite(hours) && Number.isFinite(mins) ? hours * 60 + mins : null
+              }
+              const scheduled = events.filter(event => event.date === today && event.status !== 'Cancelled' && event.room?.trim().toLowerCase() === room.id.trim().toLowerCase()).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+              const schoolStart = minutes(displaySettings.schoolStart) ?? 480
+              const schoolEnd = minutes(displaySettings.schoolEnd) ?? 1080
+              const booked = scheduled.reduce((sum, event) => {
+                const start = minutes(event.startTime)
+                const end = minutes(event.endTime)
+                return start === null || end === null || end <= start ? sum : sum + Math.max(0, Math.min(end, schoolEnd) - Math.max(start, schoolStart))
+              }, 0)
+              const percent = Math.min(100, Math.round(booked / Math.max(1, schoolEnd - schoolStart) * 100))
+              const nowMinutes = now.getHours() * 60 + now.getMinutes()
+              const nextEvent = scheduled.find(event => (minutes(event.endTime) ?? -1) > nowMinutes && event.status !== 'Completed')
+              const color = room.status === 'Occupied' ? 'bg-rose-500' : room.status === 'Reserved' ? 'bg-amber-400' : 'bg-emerald-500'
+              const toClock = value => {
+                const valueInMinutes = minutes(value)
+                return valueInMinutes === null ? '' : new Date(2000, 0, 1, Math.floor(valueInMinutes / 60), valueInMinutes % 60).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+              }
+              return <button type="button" key={room._id || room.id} tabIndex={showFlowPanel ? 0 : -1} onClick={() => setShowFlowPanel(false)} className="w-full rounded-lg border border-slate-100 bg-white p-3 text-left shadow-sm transition hover:border-blue-200">
+                <div className="flex items-center justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="text-[11px] font-extrabold text-slate-700">{room.id}</span><span className={`h-2 w-2 shrink-0 rounded-full ${color}`} /><span className="truncate text-[10px] font-semibold text-slate-500">{room.status}</span></div><ChevronRight className="h-4 w-4 text-slate-400" /></div>
+                <div className="mt-2 flex items-center justify-between gap-3"><span className="min-w-0 truncate text-[10px] text-slate-500">{room.floorLabel} · {nextEvent ? `${nextEvent.title} · ${toClock(nextEvent.startTime)}` : scheduled.length ? `${scheduled.length} event${scheduled.length === 1 ? '' : 's'} today` : 'No events scheduled today'}</span><span className="flex shrink-0 items-center gap-1.5 text-[9px] text-slate-400"><span className="h-1.5 w-12 overflow-hidden rounded-full bg-slate-100"><span className={`block h-full rounded-full ${color}`} style={{ width: `${percent}%` }} /></span>{percent}%</span></div>
+                {nextEvent ? <p className="mt-1 truncate text-[10px] text-slate-500">{nextEvent.assignedTo ? `Assigned: ${nextEvent.assignedTo} · ` : ''}{toClock(nextEvent.startTime)}–{toClock(nextEvent.endTime)}</p> : <p className="mt-1 text-[10px] text-slate-400">{room.assignedTo ? `Faculty: ${room.assignedTo}` : `Capacity: ${room.capacity ?? '—'}`}</p>}
+              </button>
+            })}
+            {!currentBuilding?.floors.some(floor => floor.rooms.length) && <p className="rounded-lg bg-white p-4 text-xs text-slate-500">No rooms found in the database.</p>}
+          </div>
+          <div className="border-t border-slate-100 px-4 py-3 text-[10px] text-slate-400">Usage is scheduled event time divided by configured school hours ({displaySettings.schoolStart}–{displaySettings.schoolEnd}).</div>
+        </aside>
       </div>
 
       {/* ADD ROOM MODAL */}
